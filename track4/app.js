@@ -8,7 +8,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_M
 
 console.log('Map ready');
 
-// Drawing
+// ---- Drawing ----
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 
@@ -48,7 +48,7 @@ function showAOIInfo(aoi) {
   `;
 }
 
-// Image overlay
+// ---- Image overlay ----
 let currentOverlay = null;
 function showLayer(imageUrl, bounds) {
   if (currentOverlay) map.removeLayer(currentOverlay);
@@ -56,9 +56,14 @@ function showLayer(imageUrl, bounds) {
     opacity: 0.75, interactive: false
   }).addTo(map);
   map.fitBounds(bounds);
+
+  currentOverlay.on('error', () => {
+    document.getElementById('info-panel').innerHTML =
+      '<strong>Not processed yet</strong><br>This layer is not available for this city.';
+  });
 }
 
-// City presets (Day 5 will overwrite these from the server)
+// ---- City presets (fallback if server is down) ----
 const CITY_BOUNDS = {
   bhubaneswar: [[20.20, 85.75], [20.35, 85.90]],
   delhi: [[28.50, 77.05], [28.75, 77.35]],
@@ -69,15 +74,36 @@ const CITY_BOUNDS = {
 let currentCity = 'bhubaneswar';
 let currentLayer = 'rgb';
 
-// Local placeholder image while Track 3's server is not yet wired in
-const PLACEHOLDER_IMG = 'https://picsum.photos/id/28/400/400';
+// ---- Connect to Track 3's server ----
+const API = 'http://localhost:8000';
 
 function refresh() {
-  const url = PLACEHOLDER_IMG; // Day 5 replaces this with Track 3's URL
+  const url = `${API}/api/layer/${currentCity}/${currentLayer}.png`;
   showLayer(url, CITY_BOUNDS[currentCity]);
   updateLegend(currentLayer);
 }
 
+async function loadCities() {
+  try {
+    const response = await fetch(`${API}/api/cities`);
+    if (!response.ok) throw new Error('Server returned ' + response.status);
+    const data = await response.json();
+    const select = document.getElementById('city-select');
+    select.innerHTML = '';
+    data.cities.forEach(city => {
+      const option = document.createElement('option');
+      option.value = city.slug;
+      option.textContent = city.name;
+      CITY_BOUNDS[city.slug] = [[city.bounds[0], city.bounds[1]], [city.bounds[2], city.bounds[3]]];
+      select.appendChild(option);
+    });
+    console.log('Loaded', data.count, 'cities from the server');
+  } catch (err) {
+    console.warn('Server unavailable, using built-in city list:', err.message);
+  }
+}
+
+// ---- Buttons and dropdown ----
 document.querySelectorAll('.layer-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
@@ -92,7 +118,7 @@ document.getElementById('city-select').addEventListener('change', e => {
   refresh();
 });
 
-// Legends
+// ---- Legends ----
 const LEGENDS = {
   lst: {
     title: 'Ground temperature',
@@ -125,5 +151,5 @@ function updateLegend(layer) {
   document.getElementById('legend').innerHTML = `<strong>${legend.title}</strong>${rows}`;
 }
 
-// Kick things off
-refresh();
+// ---- Start ----
+loadCities().then(refresh);
