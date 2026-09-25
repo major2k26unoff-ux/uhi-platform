@@ -13,6 +13,38 @@ header {
 header h1 { font-size: 18px; font-weight: 600; }
 #map { flex: 1; width: 100%; }
 
+#controls {
+  background: #f4f8f6;
+  border-bottom: 1px solid #cfe0d9;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+#controls label { font-size: 13px; font-weight: 600; color: #0b3d2e; }
+#controls select {
+  padding: 6px 10px;
+  border: 1px solid #cfd8d4;
+  border-radius: 6px;
+  font-size: 13px;
+}
+#layer-buttons { display: flex; gap: 8px; }
+.layer-btn {
+  padding: 7px 14px;
+  border: 1px solid #cfd8d4;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.layer-btn:hover { background: #e8f1ed; }
+.layer-btn.active {
+  background: #17795e;
+  color: white;
+  border-color: #17795e;
+}
+
 #info-panel {
   position: absolute;
   bottom: 20px;
@@ -25,3 +57,17 @@ header h1 { font-size: 18px; font-weight: 600; }
   font-size: 13px;
   max-width: 280px;
 }
+#legend {
+  position: absolute;
+  top: 100px;
+  right: 20px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 12px 14px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  max-width: 220px;
+}
+.legend-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.swatch { width: 12px; height: 12px; display: inline-block; border-radius: 2px; }
