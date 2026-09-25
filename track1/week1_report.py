@@ -1,4 +1,4 @@
-"""Print the Track 1 Week 1 handover answers that can be read from files.
+"""Print answers 1-6 for the Track 1 Week 1 handover.
 
 Run from the repository root:
     python .\\track1\\week1_report.py
@@ -13,16 +13,13 @@ import numpy as np
 import rasterio
 from PIL import Image
 
-from config import (BHUBANESWAR_BBOX, CITY_DIR, CITY_SLUG, DATA_DIR,
-                    DISPLAY_NAME, PREVIEW_DIR)
+from config import BHUBANESWAR_BBOX, CITY_DIR, PREVIEW_DIR
 
 
 TIFF_LAYERS = ("rgb", "ndvi", "ndbi", "ndwi", "lst")
-PNG_LAYERS = TIFF_LAYERS
 
 
 def readable_size(path: Path) -> str:
-    """Return a compact, human-readable file size."""
     size = path.stat().st_size
     for unit in ("B", "KB", "MB", "GB"):
         if size < 1024 or unit == "GB":
@@ -31,85 +28,80 @@ def readable_size(path: Path) -> str:
     raise AssertionError("unreachable")
 
 
-def raster_values(source: rasterio.io.DatasetReader) -> np.ndarray:
-    """Read all finite, unmasked values across every band."""
-    data = source.read(masked=True)
-    values = data.compressed()
-    return values[np.isfinite(values)]
-
-
-def report_tiff(path: Path) -> None:
-    with rasterio.open(path) as source:
-        print(f"\n{path.name} ({readable_size(path)})")
-        print(f"  dimensions: {source.width} x {source.height} px; bands: {source.count}")
-        print(f"  pixel size: {abs(source.transform.a):g} x {abs(source.transform.e):g}")
-        print(f"  CRS: {source.crs}")
-        print(
-            "  corners [west, south, east, north]: "
-            f"[{source.bounds.left:.6f}, {source.bounds.bottom:.6f}, "
-            f"{source.bounds.right:.6f}, {source.bounds.top:.6f}]"
-        )
-        values = raster_values(source)
-        if values.size:
-            print(
-                "  values: "
-                f"min={values.min():.4f}, max={values.max():.4f}, "
-                f"mean={values.mean():.4f}"
-            )
-        else:
-            print("  values: no valid pixels")
-
-
-def report_png(path: Path) -> None:
-    with Image.open(path) as image:
-        print(f"  {path.name}: {image.width} x {image.height} px, {readable_size(path)}")
-
-
-def report_meta() -> None:
-    path = CITY_DIR / "meta.json"
-    print("\nmeta.json")
+def tiff_details(path: Path) -> dict[str, object] | None:
     if not path.exists():
-        print("  missing - run write_meta.py after all TIFF files are present")
-        return
-    try:
-        metadata = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        print(f"  invalid JSON: {error}")
-        return
-    print(f"  exists: yes ({readable_size(path)})")
-    print(f"  bounds: {metadata.get('bounds')}")
-    print("  bounds order: [south, west, north, east] (Leaflet order)")
-    print(f"  stats: {metadata.get('stats')}")
+        return None
+    with rasterio.open(path) as source:
+        values = source.read(masked=True).compressed()
+        values = values[np.isfinite(values)]
+        return {
+            "width": source.width,
+            "height": source.height,
+            "pixel_size": (abs(source.transform.a), abs(source.transform.e)),
+            "crs": source.crs,
+            "bounds": source.bounds,
+            "stats": None if not values.size else (values.min(), values.max(), values.mean()),
+        }
 
 
 def main() -> None:
-    west, south, east, north = BHUBANESWAR_BBOX
-    print("TRACK 1 - WEEK 1 REPORT")
-    print(f"City: {DISPLAY_NAME} ({CITY_SLUG})")
-    print(f"Output directory: {CITY_DIR}")
-    print(f"Earth Engine bounding box [west, south, east, north]: {BHUBANESWAR_BBOX}")
-    print(f"Leaflet bounding box [south, west, north, east]: [{south}, {west}, {north}, {east}]")
+    files = {layer: CITY_DIR / f"{layer}.tif" for layer in TIFF_LAYERS}
+    details = {layer: tiff_details(path) for layer, path in files.items()}
 
-    print("\nGeoTIFF files")
+    print("1. Exact bounding box in config.py")
+    print("   Earth Engine order [west, south, east, north]:", BHUBANESWAR_BBOX)
+
+    print("\n2. Width x height, pixel size, and CRS of each .tif file")
+    for layer, detail in details.items():
+        if detail is None:
+            print(f"   {layer}.tif: missing")
+            continue
+        x_size, y_size = detail["pixel_size"]
+        print(
+            f"   {layer}.tif: {detail['width']} x {detail['height']} px; "
+            f"pixel size {x_size:g} x {y_size:g}; CRS {detail['crs']}"
+        )
+
+    print("\n3. Actual corners of each .tif file")
+    print("   Order: [west, south, east, north]")
+    for layer, detail in details.items():
+        if detail is None:
+            print(f"   {layer}.tif: missing")
+            continue
+        bounds = detail["bounds"]
+        print(
+            f"   {layer}.tif: [{bounds.left:.6f}, {bounds.bottom:.6f}, "
+            f"{bounds.right:.6f}, {bounds.top:.6f}]"
+        )
+
+    print("\n4. Minimum, maximum, and mean of each layer")
+    for layer, detail in details.items():
+        if detail is None or detail["stats"] is None:
+            print(f"   {layer}.tif: missing or has no valid pixels")
+            continue
+        minimum, maximum, mean = detail["stats"]
+        print(f"   {layer}.tif: min {minimum:.4f}; max {maximum:.4f}; mean {mean:.4f}")
+
+    print("\n5. File size of each .tif and PNG")
+    for layer, path in files.items():
+        print(f"   {path.name}: {readable_size(path) if path.exists() else 'missing'}")
     for layer in TIFF_LAYERS:
-        path = CITY_DIR / f"{layer}.tif"
-        if path.exists():
-            report_tiff(path)
-        else:
-            print(f"\n{path.name}: missing")
-
-    print("\nPNG preview files")
-    for layer in PNG_LAYERS:
         path = PREVIEW_DIR / f"{layer}.png"
         if path.exists():
-            report_png(path)
+            with Image.open(path) as image:
+                print(f"   {path.name}: {readable_size(path)} ({image.width} x {image.height} px)")
         else:
-            print(f"  {path.name}: missing")
+            print(f"   {path.name}: missing")
 
-    report_meta()
-    print("\nManual answers still needed: Earth Engine project ID, scene counts, any "
-          "date/cloud changes, total duration, errors, RGB scale, laptop/OS/Python, "
-          "Drive upload status, and script style.")
+    print("\n6. meta.json existence and bounds order")
+    meta_path = CITY_DIR / "meta.json"
+    if not meta_path.exists():
+        print("   meta.json: missing")
+    else:
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+        print("   meta.json: exists")
+        print("   bounds:", metadata.get("bounds"))
+        print("   bounds order: [south, west, north, east] (Leaflet order)")
 
 
 if __name__ == "__main__":
