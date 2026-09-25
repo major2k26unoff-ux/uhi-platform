@@ -42,3 +42,13 @@ The Landsat Collection 2 Level 2 `ST_B10` band is an official USGS surface-tempe
 - The first export can take several minutes and requires a working Earth Engine account.
 - The current Landsat step filters scene-level cloud cover but does not yet mask individual Landsat cloud pixels.
 - Generated TIFF and PNG data are intentionally ignored by Git; share the completed `data/bhubaneswar/` folder with the team separately.
+
+## Week 1 handover report
+
+After the pipeline finishes, run this from the repository root to print the file-based answers requested for the Week 1 review:
+
+```powershell
+python .\track1\week1_report.py
+```
+
+It reports the configured bounding box, raster dimensions, pixel sizes, CRS, corners, statistics, file sizes, PNG dimensions, and `meta.json` bounds order. Record the Earth Engine project ID, scene counts, run duration, any troubleshooting, RGB scale, computer details, Drive upload status, and script style separately while you run the pipeline.
