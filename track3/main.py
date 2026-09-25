@@ -1,12 +1,21 @@
 import json
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from cities import CITIES
 
 app = FastAPI(
     title="Urban Heat Island API",
     description="Serves satellite-derived heat and greenery layers",
     version="0.1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # fine for a student project; tighten for production
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Week 1 points at stubs. In Week 2 change this ONE line to ../data
@@ -48,3 +57,11 @@ def get_results(slug: str):
         layer: f"/api/layer/{slug}/{layer}.png" for layer in meta["layers"]
     }
     return meta
+
+@app.get("/api/layer/{slug}/{layer}.png")
+def get_layer(slug: str, layer: str):
+    """Return one map layer as a PNG image."""
+    path = DATA_ROOT / slug / "preview" / f"{layer}.png"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Layer '{layer}' not available")
+    return FileResponse(path, media_type="image/png")
