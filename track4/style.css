@@ -12,3 +12,16 @@ header {
 }
 header h1 { font-size: 18px; font-weight: 600; }
 #map { flex: 1; width: 100%; }
+
+#info-panel {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 14px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  max-width: 280px;
+}
