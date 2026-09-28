@@ -1,0 +1,28 @@
+{
+  "city": "bhubaneswar",
+  "display_name": "Bhubaneswar, Odisha",
+  "bounds": [
+    20.2,
+    85.75,
+    20.35,
+    85.9
+  ],
+  "crs": "EPSG:4326",
+  "date_start": "2024-03-01",
+  "date_end": "2024-05-31",
+  "width_px": 557,
+  "height_px": 557,
+  "layers": [
+    "rgb",
+    "ndvi",
+    "ndbi",
+    "ndwi",
+    "lst"
+  ],
+  "stats": {
+    "lst_min_c": 31.3,
+    "lst_max_c": 52.0,
+    "lst_mean_c": 39.6,
+    "ndvi_mean": 0.4
+  }
+}
