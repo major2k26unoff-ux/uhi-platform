@@ -12,6 +12,8 @@ for name, cmap, vmin, vmax in [
     ('lst', 'inferno', 25, 45),
     ('ndvi', 'RdYlGn', -0.2, 0.8),
     ('landcover', 'tab10', 0, 8),
+    ('rgb', 'viridis', 0, 1),
+    ('priority', 'YlOrRd', 0, 1),
 ]:
     plt.figure(figsize=(6, 6))
     data = heat if name == 'lst' else np.random.rand(size, size) * (vmax - vmin) + vmin
