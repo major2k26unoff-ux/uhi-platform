@@ -15,6 +15,9 @@ from PIL import Image
 
 from settings import ee_project
 
+import requests
+import time
+
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -128,20 +131,68 @@ def land_surface_temperature(aoi):
     return scenes.median().clip(aoi), count
 
 def export(image, path, aoi, scale):
-    """Download an Earth Engine image as a GeoTIFF."""
-    geemap.ee_export_image(
-        image,
-        filename=str(path),
-        scale=scale,
-        region=aoi,
-        crs="EPSG:4326",
-        file_per_band=False,
-    )
+    """Download and validate a GeoTIFF, with up to three attempts."""
+    temporary = path.with_name(path.stem + ".download.tif")
 
-    if not path.exists():
-        raise RuntimeError(
-            f"Earth Engine did not return {path.name}."
-        )
+    for attempt in range(1, 4):
+        try:
+            print(
+                f"Downloading {path.name}: attempt {attempt}/3",
+                flush=True,
+            )
+
+            url = image.getDownloadURL({
+                "scale": scale,
+                "region": aoi,
+                "crs": "EPSG:4326",
+                "format": "GEO_TIFF",
+            })
+
+            with requests.get(
+                url, stream=True, timeout=300
+            ) as response:
+                if response.status_code != 200:
+                    raise RuntimeError(
+                        f"HTTP {response.status_code}: "
+                        f"{response.text[:1500]}"
+                    )
+
+                with temporary.open("wb") as destination:
+                    for chunk in response.iter_content(
+                        chunk_size=1024 * 1024
+                    ):
+                        if chunk:
+                            destination.write(chunk)
+
+            with rasterio.open(temporary) as src:
+                if src.count < 1 or src.width < 1 or src.height < 1:
+                    raise RuntimeError("Downloaded raster is empty.")
+
+                src.read(1, window=((0, 1), (0, 1)))
+
+            temporary.replace(path)
+            print(f"Saved: {path}", flush=True)
+            return
+
+        except (
+            requests.RequestException,
+            ee.EEException,
+            rasterio.errors.RasterioError,
+            RuntimeError,
+        ) as err:
+            temporary.unlink(missing_ok=True)
+
+            if attempt == 3:
+                raise RuntimeError(
+                    f"{path.name} failed after 3 attempts: {err}"
+                ) from err
+
+            delay = attempt * 5
+            print(
+                f"Attempt failed: {err}\nRetrying in {delay} seconds.",
+                flush=True,
+            )
+            time.sleep(delay)
 
 def read_band(path):
     """Read the first raster band, using NaN for missing pixels."""
