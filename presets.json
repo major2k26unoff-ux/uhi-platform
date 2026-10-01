@@ -1,0 +1,13 @@
+[
+  {"slug": "bhubaneswar", "name": "Bhubaneswar, Odisha", "bounds": [20.20, 85.75, 20.35, 85.90], "group": "metro"},
+  {"slug": "delhi", "name": "Delhi", "bounds": [28.50, 77.05, 28.75, 77.35], "group": "metro"},
+  {"slug": "mumbai", "name": "Mumbai, Maharashtra", "bounds": [18.90, 72.77, 19.15, 72.95], "group": "metro"},
+  {"slug": "hyderabad", "name": "Hyderabad, Telangana", "bounds": [17.30, 78.35, 17.50, 78.55], "group": "metro"},
+  {"slug": "bengaluru", "name": "Bengaluru, Karnataka", "bounds": [12.88, 77.50, 13.08, 77.70], "group": "metro"},
+  {"slug": "phalodi", "name": "Phalodi, Rajasthan", "bounds": [27.08, 72.30, 27.18, 72.42], "group": "hot_town"},
+  {"slug": "churu", "name": "Churu, Rajasthan", "bounds": [28.25, 74.90, 28.35, 75.02], "group": "hot_town"},
+  {"slug": "sriganganagar", "name": "Sri Ganganagar, Rajasthan", "bounds": [29.87, 73.83, 29.98, 73.95], "group": "hot_town"},
+  {"slug": "titlagarh", "name": "Titlagarh, Odisha", "bounds": [20.26, 83.09, 20.36, 83.21], "group": "hot_town"},
+  {"slug": "banda", "name": "Banda, Uttar Pradesh", "bounds": [25.44, 80.28, 25.54, 80.40], "group": "hot_town"},
+  {"slug": "bilaspur", "name": "Bilaspur, Chhattisgarh", "bounds": [22.05, 82.09, 22.18, 82.22], "group": "hot_town"}
+]
