@@ -176,3 +176,55 @@ opened.
   judgement calls.
 - +30 points gives less cooling than +20 (crops have no monotone rule).
 - Built-up has little effect in the model (0.015).
+
+## Day 5 (Fri 2 Oct 2026): second city, Titlagarh
+
+Titlagarh, Odisha (Track 1 v2 files, 83.09-83.21 E, 20.26-20.36 N, 1337 x 1114 px at 10 m).
+The Drive folder held Track 2 files made by an older `priority.py`, so all outputs were
+regenerated with the current code.
+
+First run (no no-plant boxes): 14,763 blocks, 13,293 eligible (90%), 150 near a river.
+Top-300 mean cooling 2.75 C, best block 3.73 C, median 1.63 C, 90th percentile 2.63 C.
+
+### Photo check of the first top 10
+
+| Rank | What is there | Plantable? |
+|---|---|---|
+| 1 | Stone quarry (rock, pits, "stone crusher") | No |
+| 7 | Rocky quarry land | No |
+| 8 | Jhardebandh hill, bare granite | No |
+| 10 | Village farmland, scrub trees | Yes |
+
+Ranks 1 to 6 sat in one spot, so likely the same quarry. The labels called this rock
+"built-up" (53% built in rank 1). Same kind of error as the Bhubaneswar airport. The model
+cannot see rock; it only sees "hot, no trees".
+
+### Fix and result
+
+Three hand-drawn no-plant boxes in `no_plant.json` (two quarries, one hill): 58 blocks skipped.
+
+| | Before boxes | After boxes |
+|---|---|---|
+| Eligible blocks | 13,293 | 13,243 |
+| Top-300 mean cooling | 2.75 C | 2.71 C |
+| Best block | 3.73 C | 3.23 C |
+
+Top 300 against the whole area (after boxes): ground 44.20 C against 43.55 C, tree cover
+0.00 against 0.13, built-up 0.03 against 0.14, bare 0.00 against 0.00, water 0.00 against 0.01.
+
+Sensitivity: +10 points 2.11 C, +20 points 2.71 C, +30 points 2.56 C. Same dip at +30 as in
+Bhubaneswar (crops have no monotone rule).
+
+New top 10 checked on satellite photos (ranks 1, 2, 3, 5, 6): all plantable. Village
+farmland with houses and roads (rank 1, 3), farmland beside a reservoir (rank 5), town edge
+with open dry land (rank 6), village farmland (rank 2). Ranks 4 and 7-10 not opened.
+
+Ranks 1 to 10 are almost tied (3.19 to 3.23 C). The order inside the top 10 means little.
+
+### Lessons from two cities
+
+- The model finds "hot, bare-looking, no trees". It cannot tell farmland from rock, quarry,
+  airport or river sand. A photo check is needed per city.
+- Bhubaneswar's problems were an airport and river sand. Titlagarh's were quarries and a
+  rock hill. Each needed hand-drawn boxes.
+- A rock or slope layer would be the generic fix. Not done in Week 2.

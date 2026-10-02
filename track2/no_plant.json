@@ -3,17 +3,64 @@
     {
       "name": "Biju Patnaik International Airport (runway and main airfield)",
       "reason": "Land cover labels airport grass as crops; not plantable (Week 2, Day 4 photo check)",
-      "bounds": [20.238180, 85.805616, 20.264799, 85.818405]
+      "bounds": [
+        20.23818,
+        85.805616,
+        20.264799,
+        85.818405
+      ]
     },
     {
       "name": "Biju Patnaik International Airport (south-east taxiway and Coast Guard apron)",
       "reason": "Second airport check: zones at 85.8195-85.8204 E were taxiway and apron",
-      "bounds": [20.238000, 85.818405, 20.248000, 85.821500]
+      "bounds": [
+        20.238,
+        85.818405,
+        20.248,
+        85.8215
+      ]
     },
     {
       "name": "Kuakhai river sand area near Pandra",
       "reason": "River sand and pools labelled crops/bare; not plantable (Week 2, Day 4 photo check)",
-      "bounds": [20.303921, 85.876500, 20.313268, 85.881283]
+      "bounds": [
+        20.303921,
+        85.8765,
+        20.313268,
+        85.881283
+      ]
+    }
+  ],
+  "titlagarh": [
+    {
+      "name": "Stone quarry west of Titlagarh (rank 1 area)",
+      "reason": "Bare rock and quarry pits labelled built-up; not plantable (Week 2, Day 5 photo check)",
+      "bounds": [
+        20.261465,
+        83.132311,
+        20.265485,
+        83.136651
+      ]
+    },
+    {
+      "name": "Stone quarry east of Titlagarh (rank 7 area)",
+      "reason": "Rock outcrop and quarry pits; not plantable (Week 2, Day 5 photo check)",
+      "bounds": [
+        20.26957,
+        83.177142,
+        20.272348,
+        83.180168
+      ]
+    },
+    {
+      "name": "Jhardebandh hill (rank 8 area)",
+      "reason": "Bare granite rock face; not plantable (Week 2, Day 5 photo check)",
+      "bounds": [
+        20.271913,
+        83.199201,
+        20.279123,
+        83.202489
+      ]
     }
   ]
 }
