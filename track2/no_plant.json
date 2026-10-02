@@ -1,0 +1,19 @@
+{
+  "bhubaneswar": [
+    {
+      "name": "Biju Patnaik International Airport (runway and main airfield)",
+      "reason": "Land cover labels airport grass as crops; not plantable (Week 2, Day 4 photo check)",
+      "bounds": [20.238180, 85.805616, 20.264799, 85.818405]
+    },
+    {
+      "name": "Biju Patnaik International Airport (south-east taxiway and Coast Guard apron)",
+      "reason": "Second airport check: zones at 85.8195-85.8204 E were taxiway and apron",
+      "bounds": [20.238000, 85.818405, 20.248000, 85.821500]
+    },
+    {
+      "name": "Kuakhai river sand area near Pandra",
+      "reason": "River sand and pools labelled crops/bare; not plantable (Week 2, Day 4 photo check)",
+      "bounds": [20.303921, 85.876500, 20.313268, 85.881283]
+    }
+  ]
+}

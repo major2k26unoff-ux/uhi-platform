@@ -23,14 +23,20 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
+from scipy import ndimage
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
 
 DATA = Path(__file__).resolve().parent.parent / "data"
+NO_PLANT = Path(__file__).resolve().parent / "no_plant.json"   # hand-drawn no-plant boxes per area
 
 CELL_M = 100          # grid cell size in metres
 SCENARIO_ADD = 0.20   # add up to 20 percentage points of tree cover per cell
-MIN_ROOM = 0.05       # a cell needs at least 5 % bare or built ground to plant on
+MIN_ROOM = 0.05       # a cell needs at least 5 % of TREE_SOURCES to plant on
+TREE_SOURCES = ["built_frac", "grass_frac", "shrub_frac", "crops_frac"]   # trees replace these, in order
+WET_BLOCK = 0.2           # a block at least 20 % water counts as wet
+RIVER_MIN_CELLS = 20      # wet blocks joined together, at least this many = river or big lake (0.2 km2)
+RIVER_BUFFER_CELLS = 3    # skip blocks within 3 blocks (about 300 m) of a river: riverbeds, sandbanks
 TOP_N = 300           # zones written to priority.geojson
 MAX_PNG_SIDE = 1600
 DW_START, DW_END = "2024-03-01", "2024-05-31"
@@ -57,8 +63,11 @@ def progress(pct, stage):
 
 # ---------- reading and writing ----------
 
-def read_band(path):
+def read_band(path, keep_zero=False):
+    """keep_zero=True for land cover: class 0 is water, but the file marks 0 as 'no data'."""
     with rasterio.open(path) as src:
+        if keep_zero:
+            return src.read(1).astype("float32"), src.transform
         return src.read(1, masked=True).astype("float32").filled(np.nan), src.transform
 
 
@@ -184,25 +193,72 @@ def train(df, features, monotone=None):
 # ---------- step 4: the "what if" ----------
 
 def add_trees(df):
-    """Scenario: add up to 20 points of tree cover, taken from bare ground first, then built-up."""
+    """Scenario: add up to 20 points of tree cover, taken from built-up first, then grass, shrub, crops.
+
+    Bare ground is never touched. In Bhubaneswar the land-cover labels call airport strips and
+    riverbeds "bare", and the model treats bare ground as a heat marker. Removing it credited
+    trees with cooling they do not cause (Week 2, Day 4 check: 2.87 of 3.43 C came from bare
+    ground disappearing). Now the predicted change comes from the trees.
+    """
     s = df.copy()
-    room = s.bare_frac + s.built_frac
+    room = s[TREE_SOURCES].sum(axis=1)
     added = np.minimum(SCENARIO_ADD, room)
-    from_bare = np.minimum(added, s.bare_frac)
-    from_built = added - from_bare
+    left = added.copy()
+    for col in TREE_SOURCES:
+        take = np.minimum(left, s[col])
+        s[col] = s[col] - take
+        left = left - take
     s["tree_frac"] = s.tree_frac + added
-    s["bare_frac"] = s.bare_frac - from_bare
-    s["built_frac"] = s.built_frac - from_built
     return s, added
 
 
-def score_cells(df, model):
+def near_river_mask(df):
+    """True for blocks within RIVER_BUFFER_CELLS blocks of a large water body (river, big lake).
+
+    Dry riverbeds and sandbanks sit beside river channels, and the land-cover labels call them
+    crops or bare ground, so no land-cover rule can spot them. Distance to the river can.
+    Small ponds (fewer than RIVER_MIN_CELLS wet blocks joined together) are ignored, so a city
+    tank does not knock out a whole neighbourhood.
+    """
+    rows, cols = int(df.row.max()) + 1, int(df.col.max()) + 1
+    wet = np.zeros((rows, cols), dtype=bool)
+    w = df[df.water_frac >= WET_BLOCK]
+    wet[w.row.values, w.col.values] = True
+    labels, _ = ndimage.label(wet, structure=np.ones((3, 3)))
+    sizes = np.bincount(labels.ravel())
+    keep = np.nonzero(sizes >= RIVER_MIN_CELLS)[0]
+    keep = keep[keep != 0]                                   # label 0 is "not water"
+    river = np.isin(labels, keep)
+    near = ndimage.binary_dilation(river, structure=np.ones((3, 3)), iterations=RIVER_BUFFER_CELLS)
+    return near[df.row.values, df.col.values]
+
+
+def blocked_mask(df, slug):
+    """Blocks nobody can plant on: near a river, or inside a hand-drawn no-plant box."""
+    return near_river_mask(df) | no_plant_mask(df, slug)
+
+
+def no_plant_mask(df, slug):
+    """True for blocks inside a hand-drawn no-plant box (airport, riverbed) listed for this area
+    in track2/no_plant.json. Areas not listed there get no boxes: the rule cannot see them."""
+    mask = np.zeros(len(df), dtype=bool)
+    if not NO_PLANT.exists():
+        return mask
+    for box in json.loads(NO_PLANT.read_text()).get(slug, []):
+        south, west, north, east = box["bounds"]
+        mask |= ((df.lat >= south) & (df.lat <= north) & (df.lon >= west) & (df.lon <= east)).to_numpy()
+    return mask
+
+
+def score_cells(df, model, blocked=None):
     after, added = add_trees(df)
     df = df.copy()
     df["added"] = added
     # Model versus model: the same model predicts both, so its own bias cancels out.
     df["delta_t"] = model.predict(df[FEATURES_LAND]) - model.predict(after[FEATURES_LAND])
-    df["eligible"] = (df.added >= MIN_ROOM) & (df.water_frac < 0.5)
+    df["eligible"] = (df.added >= MIN_ROOM) & (df.water_frac < 0.05)
+    if blocked is not None:
+        df["eligible"] = df.eligible & ~blocked
 
     ranked = df[df.eligible].sort_values("delta_t", ascending=False)
     df["rank"] = 0
@@ -261,7 +317,8 @@ def write_outputs(out, slug, df, shape, k, metrics_green, metrics_land):
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "scenario": {
             "description": "Add up to 20 percentage points of tree cover in each 100 m cell, "
-                           "converting bare ground first, then built-up area",
+                           "replacing built-up area first, then grass, shrub and crops; "
+                           "bare ground and water are left unchanged",
             "max_added_tree_frac": SCENARIO_ADD,
         },
         "cells_total": int(len(df)),
@@ -297,7 +354,7 @@ def compute_priority(slug, skip_fetch=False):
         fetch_landcover(out, meta)
 
     progress(30, "Building 100 m grid")
-    lc, transform = read_band(out / "landcover.tif")
+    lc, transform = read_band(out / "landcover.tif", keep_zero=True)
     lst, _ = read_band(out / "lst.tif")
     ndvi, _ = read_band(out / "ndvi.tif")
     lc, lst, ndvi = crop_to_common(lc, lst, ndvi)
@@ -315,7 +372,7 @@ def compute_priority(slug, skip_fetch=False):
     model_land, metrics_land = train(df, FEATURES_LAND, MONOTONE)
 
     progress(85, "Ranking zones by expected cooling")
-    df = score_cells(df, model_land)
+    df = score_cells(df, model_land, blocked_mask(df, slug))
 
     progress(95, "Writing priority map")
     summary = write_outputs(out, slug, df, lst.shape, k, metrics_green, metrics_land)
