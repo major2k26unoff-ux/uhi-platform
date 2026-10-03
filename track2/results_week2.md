@@ -132,7 +132,7 @@ I opened the top-10 zones in Google satellite view and looked at each one.
    (84-88%) or "grass" for these, but they were airport grass and river sand.
 2. **The planned water rule changed nothing.** Excluding blocks with water >= 5% removed
    no blocks, because these blocks had 0 water in the labels.
-3. **Most of the cooling was not from trees.** `diag_scenario.py`, top 300, mean cooling:
+3. **Most of the cooling was not from trees.** A one-off check (script removed afterwards), top 300, mean cooling:
    team scenario 3.43 C, trees only 0.55 C, bare-ground removal only 2.87 C. About 85% of
    the cooling came from "bare ground disappears", not from trees arriving.
 
@@ -256,7 +256,7 @@ Two ways to detect these beds were tested and both failed:
 | JRC water history 1984 to 2021 (0 to 100) | 0.90, 0.01, 0.14, 1.29, 0.11, 0.01, 22.7, 0, 0, 0 | all 0 | Only 1 of 10 flagged |
 
 Dynamic World (the labels) calls the beds "crops". Three separate satellite sources are
-fooled by a dry river bed, so no water rule fixes it. Scripts: `diag_ndwi.py`, `diag_gsw.py`.
+fooled by a dry river bed, so no water rule fixes it. Both tests were one-off scripts (NDWI and JRC water history) and were removed after use.
 
 Decision: no further rule for Cuttack, which was a test job and not one of the preset cities.
 A real fix needs terrain (height above the nearest river), listed under future work.
