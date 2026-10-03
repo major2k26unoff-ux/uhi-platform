@@ -31,6 +31,38 @@
       ]
     }
   ],
+  "mumbai": [
+    {
+      "name": "Juhu Aerodrome (runway, apron, dry grass)",
+      "reason": "Airport grass looks bare and hot to the model; not plantable (Week 2, Day 6 photo check, rank 1)",
+      "bounds": [
+        19.091685,
+        72.827078,
+        19.101237,
+        72.839261
+      ]
+    },
+    {
+      "name": "Mumbai airport (runways, taxiways, apron)",
+      "reason": "Airport grass and runway edges look bare and hot to the model; not plantable (Week 2, Day 6 photo check, ranks 3 and 5)",
+      "bounds": [
+        19.081501,
+        72.843906,
+        19.10309,
+        72.881282
+      ]
+    },
+    {
+      "name": "Kanjurmarg Dumping Ground and waste plant sheds",
+      "reason": "Active landfill and waste processing; hot bare ground, not plantable (Week 2, Day 6 photo check, ranks 1, 3, 6-9)",
+      "bounds": [
+        19.120452,
+        72.94221,
+        19.128282,
+        72.959879
+      ]
+    }
+  ],
   "titlagarh": [
     {
       "name": "Stone quarry west of Titlagarh (rank 1 area)",

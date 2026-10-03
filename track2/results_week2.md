@@ -228,3 +228,107 @@ Ranks 1 to 10 are almost tied (3.19 to 3.23 C). The order inside the top 10 mean
 - Bhubaneswar's problems were an airport and river sand. Titlagarh's were quarries and a
   rock hill. Each needed hand-drawn boxes.
 - A rock or slope layer would be the generic fix. Not done in Week 2.
+
+### Day 5, part 2: the worker, and a new area (Cuttack)
+
+Test of the real chain, no website. A request file `c0ffee01.request.json` (Cuttack, box
+20.43-20.49 N, 85.85-85.92 E, nobody had processed it) was placed in `data/jobs/`. Track 1's
+`worker.py` picked it up, ran Track 1's steps, then ran `priority.py` at 55% (the log switches
+from `[track1]` to `[track2]`). The job ended `done`. About 13 minutes in total.
+This shows `priority.py` works inside the worker on an area nobody touched.
+
+Cuttack result: 5,148 blocks, 2,877 eligible (56%). 12% of the area is water. 1,809 blocks
+skipped as near a river (the water fix works on a new city). Top-300 mean cooling 2.46 C,
+best block 6.18 C. The top 300 are town land (68% built-up, 41.4 C against 40.8 C average).
+
+### Cuttack top 10: dry river beds (not plantable)
+
+All ten top blocks sit on the southern edge of the box, on the Kuakhai and Kathajodi beds.
+Photos of ranks 1 to 4: ranks 1, 2 and 4 river bed (sand, sand-mining tracks, pools,
+floodplain grass); rank 3 a riverbank field (a cricket ground) beside the sand. In the
+labels all ten are about 100% "crops".
+
+Two ways to detect these beds were tested and both failed:
+
+| Test | Cuttack top 10 | Bhubaneswar top 10 (good farmland) | Verdict |
+|---|---|---|---|
+| NDWI wetness, percentile among all blocks | 17 to 39 (drier than median) | 81 to 94 (wetter) | Wrong direction |
+| JRC water history 1984 to 2021 (0 to 100) | 0.90, 0.01, 0.14, 1.29, 0.11, 0.01, 22.7, 0, 0, 0 | all 0 | Only 1 of 10 flagged |
+
+Dynamic World (the labels) calls the beds "crops". Three separate satellite sources are
+fooled by a dry river bed, so no water rule fixes it. Scripts: `diag_ndwi.py`, `diag_gsw.py`.
+
+Decision: no further rule for Cuttack, which was a test job and not one of the preset cities.
+A real fix needs terrain (height above the nearest river), listed under future work.
+Hand boxes work for a known city (Bhubaneswar, Titlagarh) and cannot cover areas a user draws.
+
+### Limits added by Day 5
+
+- Dry river beds and sandbanks look like farmland to the labels, to NDWI and to the water
+  history layer. The top of the list for a river city must be checked on satellite photos.
+- The demo should use the preset cities, which were checked, and say this limit out loud.
+
+## Day 6 (Sat 3 Oct 2026): all cities with the final code
+
+All 11 preset cities were re-run with the final `priority.py` (`rerun_all.py`), then summarised
+with `cross_city.py`. Older Drive copies made before the water fix are out of date.
+
+| Area | Blocks | Top-300 cooling C | Best block C | R2 with greenness | R2 land cover only | Note |
+|---|---|---|---|---|---|---|
+| banda | 14763 | 3.55 | 4.56 | 0.515 | 0.264 | |
+| bengaluru | 49284 | 3.84 | 6.09 | 0.533 | 0.354 | |
+| bhubaneswar | 27889 | 2.55 | 3.21 | 0.467 | 0.288 | photo-checked, 3 boxes |
+| bilaspur | 20736 | 5.86 | 6.83 | 0.793 | 0.116 | weak scenario model |
+| churu | 14763 | 4.06 | 4.84 | 0.626 | 0.579 | |
+| delhi | 92852 | 5.06 | 6.95 | 0.215 | 0.041 | weak scenario model |
+| hyderabad | 49284 | 4.55 | 8.72 | 0.537 | 0.460 | best block high, not checked |
+| mumbai | 55600 | 3.99 | 6.68 | 0.869 | 0.796 | photo-checked, 3 boxes, low confidence |
+| phalodi | 14763 | 5.10 | 5.14 | 0.433 | 0.354 | many ties at the top |
+| sriganganagar | 16226 | 6.68 | 7.23 | 0.132 | 0.121 | weak scenario model |
+| titlagarh | 14763 | 2.71 | 3.23 | 0.399 | 0.538 | photo-checked, 3 boxes |
+
+### Critical read
+
+- **Weak scenario models.** Delhi, Bilaspur and Sri Ganganagar have a land-cover R2 under
+  0.2. The "cooling" there is mostly the model's average, not a real signal. The table flags them.
+- **Mumbai R2 looks great but is inflated.** Half of the blocks are sea. Sea is cold and
+  easy to tell from land, so R2 is high. It does not mean the land part is predicted well.
+- **Titlagarh is backwards.** Land-cover only (0.538) beats with-greenness (0.399). Odd for
+  a small area. It is a reason to trust its numbers less, not more.
+- **Phalodi: top-300 mean 5.10, best 5.14.** Almost all top blocks tie, so the rank order
+  inside the top 300 is arbitrary.
+- **Not photo-checked:** Banda, Bengaluru, Bilaspur, Churu, Delhi, Hyderabad, Phalodi.
+  Hyderabad's best block (8.72 C) is the highest in the table and is unverified.
+  Only Bhubaneswar, Titlagarh, Mumbai and (two ranks of) Sri Ganganagar were checked on photos.
+
+### Mumbai (photo check)
+
+The first top 10 was mostly places that cannot take trees: Juhu aerodrome (ranks 1, 2, 9),
+Mumbai airport (ranks 3, 5, 6) and the Kanjurmarg dumping ground (rank 4, and later six of the
+next top ten). Same cause as Bhubaneswar: bare, hot ground with no trees looks like the best
+place to plant. Three no-plant boxes were added (Juhu aerodrome, Mumbai airport, Kanjurmarg
+dump). After the boxes, 1,186 blocks are skipped inside boxes and the top 300 average is 3.98 C.
+
+The new top five, checked on photos: rank 2 an open plot in Worli (good); ranks 1 and 3 a
+slum beside a dry forest hill in Powai (doubtful); rank 4 dense slum roofs in Govandi (wrong);
+rank 5 the Mandala metro depot next to mangrove (wrong). In a dense city, roofs and large sheds
+read as "bare and hot". More boxes would only chase single places, so the work stopped here.
+Mumbai is marked **low confidence**.
+
+### Sri Ganganagar (photo check)
+
+Ranks 1 and 5 are real farmland with few trees (harvested fields; irrigated fields and
+orchards). Planting on field edges and roadsides is possible, so the zones are not wrong.
+But the model is weak (R2 0.12) and gives almost the same cooling (about 6.6 C) to many
+blocks, so the ranking says little. Marked low confidence, no boxes drawn.
+
+### What the results can and cannot claim
+
+The model finds places that are hot, look bare and have few trees, and it estimates how much
+cooler they would be with more trees. That is a statistical link learned from satellite data,
+not a physical simulation. It can say where to look first. It cannot say that a place is
+plantable: airports, dumps, quarries, river beds, slum roofs and rail depots all look like
+good targets to it. Every list needs a photo check before it is used, and only some cities
+had one. Cooling numbers are only as good as the scenario model, which is weak for Delhi,
+Bilaspur and Sri Ganganagar. The hand-drawn no-plant boxes exist for Bhubaneswar, Titlagarh
+and Mumbai only, and cannot cover areas a user draws on the website.
