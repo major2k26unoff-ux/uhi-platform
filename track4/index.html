@@ -1,26 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Urban Heat Island Analysis</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Urban Heat Island Analysis</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <header>
   <h1>Urban Heat Island &amp; Green Canopy Analysis</h1>
+  <p>Pick a city, or draw a box on any Indian city, to find its heat islands and the best places to plant trees.</p>
 </header>
 
 <div id="controls">
   <label for="city-select">City</label>
-  <select id="city-select">
-    <option value="bhubaneswar">Bhubaneswar, Odisha</option>
-    <option value="delhi">Delhi</option>
-    <option value="phalodi">Phalodi, Rajasthan</option>
-    <option value="titlagarh">Titlagarh, Odisha</option>
-  </select>
+  <select id="city-select"></select>
+
   <div id="layer-buttons">
     <button class="layer-btn active" data-layer="rgb">Satellite</button>
     <button class="layer-btn" data-layer="landcover">Land cover</button>
@@ -31,13 +29,20 @@
 </div>
 
 <div id="map"></div>
-<div id="info-panel">
-  <p>Draw a rectangle on the map to select an area.</p>
-</div>
+
+<div id="info-panel"><p>Loading…</p></div>
 <div id="legend"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-<script src="app.js"></script>
+<div id="progress" class="hidden">
+  <div id="progress-stage">Starting…</div>
+  <div id="progress-track"><div id="progress-bar"></div></div>
+  <div id="progress-pct">0%</div>
+</div>
+
+<footer>Tracks 1–4 · KIIT Major Project · Estimates are a planning guide, not a guarantee.</footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
