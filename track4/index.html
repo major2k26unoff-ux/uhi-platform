@@ -3,43 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b3d2e">
   <title>Urban Heat Island Analysis</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header>
-  <h1>Urban Heat Island &amp; Green Canopy Analysis</h1>
-  <p>Pick a city, or draw a box on any Indian city, to find its heat islands and the best places to plant trees.</p>
-</header>
+<div id="map" role="region" aria-label="Map"></div>
 
-<div id="controls">
-  <label for="city-select">City</label>
-  <select id="city-select"></select>
+<div id="top-ui" class="top-ui">
+  <header class="card brand-card">
+    <h1>Urban Heat Island Analysis</h1>
+    <p class="lede">Find heat islands and the best places to plant trees. Pick a city, or draw a box with the square tool.</p>
+    <label for="city-select" class="field-label">City</label>
+    <select id="city-select" name="city">
+      <option value="">Loading cities…</option>
+    </select>
+  </header>
 
-  <div id="layer-buttons">
-    <button class="layer-btn active" data-layer="rgb">Satellite</button>
-    <button class="layer-btn" data-layer="landcover">Land cover</button>
-    <button class="layer-btn" data-layer="lst">Heat</button>
-    <button class="layer-btn" data-layer="ndvi">Greenery</button>
-    <button class="layer-btn" data-layer="priority">Plant here</button>
+  <div class="card layer-card">
+    <div id="layer-buttons" class="segmented" role="group" aria-label="Map layer">
+      <button type="button" class="layer-btn active" data-layer="rgb" aria-pressed="true">Satellite</button>
+      <button type="button" class="layer-btn" data-layer="landcover" aria-pressed="false">Land cover</button>
+      <button type="button" class="layer-btn" data-layer="lst" aria-pressed="false">Heat</button>
+      <button type="button" class="layer-btn" data-layer="ndvi" aria-pressed="false">Greenery</button>
+      <button type="button" class="layer-btn" data-layer="priority" aria-pressed="false">Plant here</button>
+    </div>
   </div>
 </div>
 
-<div id="map"></div>
+<div class="dock">
+  <div class="dock-col">
+    <details id="info-card" class="card panel" open>
+      <summary><span id="info-title" class="panel-title">Loading…</span></summary>
+      <div id="info-body" class="panel-body"></div>
+    </details>
+  </div>
 
-<div id="info-panel"><p>Loading…</p></div>
-<div id="legend"></div>
+  <div class="dock-col dock-right">
+    <div id="progress" class="card progress" role="status" aria-live="polite" aria-atomic="true" hidden>
+      <div class="progress-head">
+        <span id="progress-stage" class="progress-stage">Starting…</span>
+        <span id="progress-pct" class="progress-pct">0%</span>
+      </div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
 
-<div id="progress" class="hidden">
-  <div id="progress-stage">Starting…</div>
-  <div id="progress-track"><div id="progress-bar"></div></div>
-  <div id="progress-pct">0%</div>
+    <details id="legend-card" class="card panel legend-card" open>
+      <summary>
+        <span class="panel-title"><span class="panel-kicker">Showing</span> <span id="active-layer-name">Satellite</span></span>
+      </summary>
+      <div class="panel-body">
+        <p id="legend-title" class="legend-title"></p>
+        <div id="legend-rows"></div>
+        <p id="legend-note" class="muted legend-note"></p>
+        <div class="opacity-field">
+          <label for="opacity" class="field-label">Layer opacity</label>
+          <output id="opacity-value" for="opacity">60%</output>
+        </div>
+        <input type="range" id="opacity" name="opacity" min="0" max="100" step="5" value="60">
+      </div>
+    </details>
+  </div>
 </div>
 
-<footer>Tracks 1–4 · KIIT Major Project · Estimates are a planning guide, not a guarantee.</footer>
+<p class="credit">KIIT Major Project. Estimates are a planning guide, not a guarantee.</p>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
