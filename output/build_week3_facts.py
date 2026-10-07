@@ -61,6 +61,8 @@ def markdown(path):
         source(path)
         return
     block = []
+    summary = []
+    compact = path.endswith("modis_check.md")
     def flush():
         if not block:
             return
@@ -81,9 +83,14 @@ def markdown(path):
             block.append(row)
         else:
             flush()
-            if line.strip():
+            if compact:
+                if line.startswith(("Cities compared:", "Correlation between", "Average difference,", "Average size of")):
+                    summary.append(line)
+            elif line.strip():
                 text(line)
     flush()
+    if summary:
+        text("; ".join(summary))
     source(path)
 
 
@@ -133,14 +140,15 @@ source("track1/pipeline.py")
 section(3, "Cloud masking")
 text("Sentinel-2 is linked with Cloud Score+; pixels require cs_cdf >= 0.60, reflectance is divided by 10000, then a temporal median is used. Landsat requires L2SP and scene CLOUD_COVER < 40; QA_PIXEL cloud bit 3 and shadow bit 4 are masked before the median. Remaining cloud contamination has not been measured.")
 source("track1/pipeline.py")
+story.append(PageBreak())
 section(4, "Formulas")
 table([["Layer", "Expression in code"], ["NDVI", "(B8 - B4) / (B8 + B4)"], ["NDBI", "(B11 - B8) / (B11 + B8)"], ["NDWI", "(B3 - B8) / (B3 + B8)"], ["LST in Celsius", "ST_B10 * 0.00341802 + 149.0 - 273.15"]])
 source("track1/pipeline.py")
-story.append(PageBreak())
 section(5, "Export and alignment")
 text("The pipeline chooses 10, 20, 25 or 50 m using an estimated 2500-pixel maximum side budget. Exports use EPSG:4326. All five layers must share CRS, transform, width and height. A temporary TIFF is validated before replacing the destination; each download gets up to three attempts. Previews have at most 1600 pixels on their longest side. Native thermal detail is approximately 100 m, regardless of export spacing; B11 is a 20 m optical band.")
 text("The scale budget is a geographic estimate, not an assertion that every returned raster dimension is <= 2500. Preview LST colours use 25-45 C; values above 45 C saturate visually while the TIFF values remain intact.")
 source("track1/pipeline.py")
+story.append(Paragraph('Dataset specification: <link href="https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED">Earth Engine Sentinel-2 catalog</link>, checked 07 Oct 2026, confirms the 20 m B11 band.', styles["Evidence"]))
 section(6, "Worker and failure messages")
 text("Requests and statuses live in data/jobs/<id>.request.json and <id>.status.json. One worker processes jobs oldest first, using each track's own virtual environment. Track 1 contributes 0-55% progress and Track 2 55-100%. Both must finish for status done. Startup requeues interrupted running jobs. Failed statuses retain a plain error and the last 1500 characters of error_detail; full child output remains in the terminal or captured validation log.")
 text("The known tiny-area error is mapped to: This area is too small or too cloudy to rank planting zones. Draw a bigger box. The fallback for unknown errors directs the operator to the worker window.")
@@ -168,6 +176,8 @@ if modis_path.exists():
         text(f"Largest absolute offset: {biggest[0]} ({biggest[1]:+.1f} C). Smallest absolute offset: {smallest[0]} ({smallest[1]:+.1f} C). Differences in sea/land mixture, coarse spatial support, temporal compositing and clear-scene sampling are plausible explanations, not established causes. The observed offsets vary across cities; no constant bias correction has been validated.")
 text("This compares stored Landsat city means against MOD11A2 daytime 8-day composite means. It does not match individual overpasses, apply additional MODIS QC bits, harmonize masks, or estimate Landsat accuracy. Composites selected by start date can overlap the window boundaries. The image count is the number of date-selected composites, not the number with usable data at each city. Correlation uses rounded values; a high correlation does not remove the temperature bias.")
 source("track1/modis_check.py")
+story.append(Paragraph('Dataset specification: <link href="https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD11A2">Earth Engine MOD11A2 catalog</link>, checked 07 Oct 2026, documents the 1 km 8-day mean, Kelvin scale 0.02 and QC flags.', styles["Evidence"]))
+story.append(PageBreak())
 section(9, "Stress test")
 markdown("data/stress_test.md")
 text("Both rounds use the Week 3 worker. Round 1 began before a repository fast-forward: its first three model subprocesses used b08c895; remaining jobs and all of round 2 use 6e09013. They are repeated operational tests, not measured before/after repair evidence. The PDF-provided Minutes column includes queue wait; isolated processing minutes appear in section 11. A tiny-box failure due to fewer than 200 usable model cells is an expected model limit.")
@@ -176,9 +186,12 @@ source("data/week3_code_versions.json")
 story.append(PageBreak())
 section(10, "Repeat test")
 for slug in ("titlagarh", "phalodi"):
+    if slug == "phalodi":
+        story.append(PageBreak())
     markdown(f"data/repeat_{slug}.md")
-text("The saved baseline is compared with an independent rerun. CRS, shape, transform and valid-pixel masks must match. Zero valid pixels are not measured. Identical and tiny-change verdicts follow the supplied numerical tolerance; they establish repeatability for this run, not accuracy.")
+text("The saved baseline is compared with an independent rerun. CRS, shape, transform and valid-pixel masks must match. The RGB comparison count includes three band samples per spatial pixel; single-band counts are valid spatial pixels. Zero valid samples are not measured. Identical and tiny-change verdicts follow the supplied numerical tolerance; they establish repeatability for this run, not accuracy.")
 source("track1/repeat_check.py")
+story.append(PageBreak())
 section(11, "Measured run times")
 runtime = [["Area / round", "Box km (approx.)", "Pixel m", "Pipeline minutes", "Full processing minutes", "Queue-to-finish minutes"]]
 for r in run.get("rounds", []):
@@ -203,6 +216,7 @@ table(runtime)
 source("data/run_times.md")
 source("data/week3_run.json")
 text("Processing durations for failed jobs measure time until failure. Box dimensions use the same geographic approximation as stress_test.py; they are not surveyed distances. Timing sources: matching data/jobs/<id> request and status files, and the runner manifest.")
+story.append(PageBreak())
 section(12, "Sizes and limits")
 table([["Limit", "Value / qualification", "Code source"], ["Website size", "0.3 degrees per side", "track3/main.py"], ["Minimum model", "200 usable 100 m cells; practical box size depends on eligibility", "track2/priority.py"], ["Pixel scales", "10, 20, 25, 50 m", "track1/pipeline.py"], ["Export budget", "Estimated 2500 pixels per side", "track1/pipeline.py"], ["Preview budget", "1600 pixels longest side", "track1/pipeline.py"], ["Area rule", "Coordinate order, size, broad southwest-corner India bounds; no national polygon test", "track3/main.py"]])
 source("track3/main.py")
