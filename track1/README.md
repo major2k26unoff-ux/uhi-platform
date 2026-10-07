@@ -192,7 +192,7 @@ python .\track1\test_week3.py -v
 
 The stress test queues Puri, Jaisalmer, Shimla, Shillong, a tiny Bhubaneswar box and a near-limit Kolkata box. Start exactly one worker first. The script waits up to 90 minutes; `--report` only rebuilds the table without queueing more work. Each invocation retains earlier rounds in `data/stress_test.md`. Its Minutes column measures queue-to-completion time, including time waiting behind other jobs; it is not isolated processing time. `data/week3_run.json` identifies the local validation rounds; status `processing_seconds` records isolated processing time for those runs.
 
-The quality script reads the 11 preset folders and writes `data/quality_table.md`. Valid percentages describe finite saved pixels, not the share of clear scenes or a guarantee of accurate temperatures. Folder sizes include all existing files in each city folder.
+The quality script reads the 11 preset folders and writes `data/quality_table.md`. Valid percentages describe finite saved pixels, not the share of clear scenes or a guarantee of accurate temperatures. They are rounded to one decimal place: 100.0% can still include a few masked pixels. Folder sizes include all existing files in each city folder.
 
 The MODIS script writes `data/modis_check.md` using Terra MOD11A2 daytime 8-day composites at 1 km, with the heat dates in each city's metadata. This is a comparison of city averages; the grids, clear-scene sampling and temporal aggregation differ. It is not a pixel-level accuracy test. Correlation is calculated from rounded city means. MODIS dates select composites by their start dates, so a composite can extend beyond the requested end date.
 
