@@ -177,3 +177,65 @@ python .\track1\week1_report.py
 ```
 
 The local Week 1 Bhubaneswar backup is `data/bhubaneswar_week1/`.
+
+## Week 3 - validation and handover
+
+Run these commands from the repository root with the Track 1 environment active:
+
+```powershell
+python .\track1\stress_test.py
+python .\track1\stress_test.py --report
+python .\track1\quality_table.py
+python .\track1\modis_check.py
+python .\track1\test_week3.py -v
+```
+
+The stress test queues Puri, Jaisalmer, Shimla, Shillong, a tiny Bhubaneswar box and a near-limit Kolkata box. Start exactly one worker first. The script waits up to 90 minutes; `--report` only rebuilds the table without queueing more work. Each invocation retains earlier rounds in `data/stress_test.md`. Its Minutes column measures queue-to-completion time, including time waiting behind other jobs; it is not isolated processing time. `data/week3_run.json` identifies the local validation rounds; status `processing_seconds` records isolated processing time for those runs.
+
+The quality script reads the 11 preset folders and writes `data/quality_table.md`. Valid percentages describe finite saved pixels, not the share of clear scenes or a guarantee of accurate temperatures. Folder sizes include all existing files in each city folder.
+
+The MODIS script writes `data/modis_check.md` using Terra MOD11A2 daytime 8-day composites at 1 km, with the heat dates in each city's metadata. This is a comparison of city averages; the grids, clear-scene sampling and temporal aggregation differ. It is not a pixel-level accuracy test. Correlation is calculated from rounded city means. MODIS dates select composites by their start dates, so a composite can extend beyond the requested end date.
+
+Repeat testing preserves a baseline before re-running the satellite pipeline:
+
+```powershell
+python .\track1\repeat_check.py --slug titlagarh --save
+Measure-Command { python .\track1\pipeline.py --slug titlagarh --south 20.26 --west 83.09 --north 20.36 --east 83.21 --name "Titlagarh, Odisha" | Out-Default } | Select-Object TotalMinutes
+python .\track1\repeat_check.py --slug titlagarh
+python .\track1\repeat_check.py --slug phalodi --save
+Measure-Command { python .\track1\pipeline.py --slug phalodi --south 27.08 --west 72.30 --north 27.18 --east 72.42 --name "Phalodi, Rajasthan" | Out-Default } | Select-Object TotalMinutes
+python .\track1\repeat_check.py --slug phalodi
+python .\track1\city_table.py
+```
+
+Reports are `data/repeat_titlagarh.md` and `data/repeat_phalodi.md`. Baselines remain under `data/_repeat/<slug>/`; an existing baseline is never silently overwritten. Preserve it before a new test. The checker compares CRS, transform, dimensions, band count and valid-pixel masks. Empty comparisons are `NOT MEASURED`, never `identical`. Small nonzero differences use the supplied 1% of baseline magnitude tolerance.
+
+Failed status files have `error` (plain message for the website) and `error_detail` (last 1500 characters of technical output). Use `python .\track1\job_report.py` to print both, or inspect `data/jobs/<id>.status.json`. Successful retries clear both fields. Full child output is in the worker terminal; this session's validation log is `tmp/pdfs/week3-run.log`.
+
+If Earth Engine explicitly reports expired authorization, activate Track 1 and run `earthengine authenticate`. DNS or connection failures require checking connectivity, not replacing credentials. To change season, edit `S2_START`, `S2_END`, `LS_START`, and `LS_END` near the top of `pipeline.py`, then regenerate the satellite and model files together. End dates are exclusive.
+
+| Limit | Implementation |
+|---|---|
+| Website maximum box | 0.3 degrees per side in `track3/main.py` |
+| Area validation | Existing server checks coordinate order, size, and southwest corner against a broad India bounding rectangle; it does not validate the national boundary |
+| Minimum model data | At least 200 usable 100 m cells in `track2/priority.py`; required box size depends on water, clouds and eligibility |
+| Export scales | 10, 20, 25, 50 m; `pick_scale()` estimates a 2500-pixel side budget |
+| Grid | All five TIFFs must share CRS, transform and dimensions |
+| Thermal detail | Approximately 100 m native; smaller export pixels do not add thermal detail |
+| Previews | At most 1600 pixels on longest side; LST colours clip to 25-45 C |
+| Download retries | Three attempts per TIFF; network/server failures remain possible |
+
+The script-level regression checks are offline; the stress and repeat reports are the real-system evidence. Both local stress rounds use the Week 3 error handling, so they must not be labelled as an observed before/after fix comparison. The first three model runs in round 1 use the older checkout; remaining runs use integration commit `6e09013`. `data/week3_code_versions.json` records this boundary. Round 2 validates the updated integration code throughout.
+
+### Human handover checklist
+
+- Track 2 activates its own Track 1 environment and runs one preset city on its own machine.
+- Track 2 starts one worker and draws a new website box, watching it finish.
+- Track 2 reads a failed job's `error_detail`, then runs quality and city tables.
+- Check the team's launcher and its `logs/` folder on the integration machine. `start_demo.bat` and `run_all.py` are present after the Week 2 integration fast-forward.
+- Record the approximately five-minute narrated handover video without showing local credentials.
+- Upload the facts PDF to Drive `03_Results/facts/` and Markdown tables/video to `03_Results/track1/`; arrange delivery to Track 2.
+
+The session and recording require the people involved. Their completion is not inferred from local tests. Data, previews, metadata, local config and virtual environments must not be staged with code.
+
+To rebuild the facts PDF from the saved tables and images, use a Python environment with ReportLab installed and run `python .\output\build_week3_facts.py`. The output is `output/pdf/Facts_Track1_Track1.pdf`; the builder also writes `data/run_times.md`. The author label is Track 1, as requested. Regenerate measurement tables before rebuilding; pending tests remain explicitly not measured.

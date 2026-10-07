@@ -129,6 +129,7 @@ def process(request_path):
             progress=0,
             stage="Starting",
             error=None,
+            error_detail=None,
         )
 
         for track, script in [
@@ -176,6 +177,7 @@ def process(request_path):
             progress=100,
             stage="Done",
             error=None,
+            error_detail=None,
         )
 
         print(f"Job {job_id}: done", flush=True)
@@ -185,10 +187,44 @@ def process(request_path):
             job_id,
             status="failed",
             stage="Failed",
-            error=str(err)[-1500:],
+            error=friendly_error(str(err)),
+            error_detail=str(err)[-1500:],
         )
 
         print(f"Job {job_id}: FAILED\n{err}", flush=True)
+
+FRIENDLY_ERRORS = [
+    ("usable grid cells",
+     "This area is too small or too cloudy to rank planting zones. Draw a bigger box."),
+    ("No Sentinel-2 images",
+     "No clear Sentinel-2 images exist for this area between March and May 2024. Try another area."),
+    ("No Landsat",
+     "No clear Landsat heat images exist for this area between March and June 2024. Try another area."),
+    ("Area too large",
+     "This box is too large. Draw a smaller one (at most about 33 km a side)."),
+    ("virtual environment is missing",
+     "The server is not set up correctly: a track's virtual environment is missing."),
+    ("local_config.json is missing",
+     "The server is not set up correctly: local_config.json is missing."),
+    ("does not match the RGB grid",
+     "The satellite layers did not line up. Try the same box again."),
+    ("HTTP 429", "Earth Engine is busy right now. Wait a minute and try again."),
+    ("Too many concurrent", "Earth Engine is busy right now. Wait a minute and try again."),
+    ("quota", "Earth Engine is busy right now. Wait a minute and try again."),
+    ("timed out", "The satellite download timed out. Check the internet connection and try again."),
+    ("Max retries", "The satellite download failed. Check the internet connection and try again."),
+    ("getaddrinfo failed", "The satellite service could not be reached. Check the internet connection and try again."),
+    ("ConnectionError", "The satellite download failed. Check the internet connection and try again."),
+    ("Not signed in", "Earth Engine sign-in has expired. Run 'earthengine authenticate' on the server."),
+    ("Please authorize", "Earth Engine sign-in has expired. Run 'earthengine authenticate' on the server."),
+    ("credentials", "Earth Engine sign-in has expired. Run 'earthengine authenticate' on the server."),
+]
+def friendly_error(text):
+    """Turn a long technical error into one plain sentence for the website."""
+    for pattern, message in FRIENDLY_ERRORS:
+        if pattern.lower() in text.lower():
+            return message
+    return "Processing failed. The worker window shows the technical details."
 
 def waiting_requests():
     """Find requests with no status file, oldest first."""

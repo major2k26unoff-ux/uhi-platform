@@ -44,6 +44,8 @@ def main():
 
         if status.get("error"):
             print(f"    Error: {status['error']}")
+        if status.get("error_detail"):
+            print(f"    Technical detail: {status['error_detail']}")
 
 
 if __name__ == "__main__":
