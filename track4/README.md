@@ -1,29 +1,45 @@
 # Track 4 — Website and Demo
 
 ## How to run
-1. `cd track4`
-2. `python -m http.server 5500`
+1. cd track4
+2. python -m http.server 5500
 3. Open http://localhost:5500
 
-Or start everything at once with `start_demo.bat` from the repository root.
+Make sure Track 3's server is also running at http://localhost:8000
+(cd track3, venv\Scripts\activate, uvicorn main:app --reload --port 8000)
 
-## What each control does
-- City dropdown (top left): moves the map to a preset city
-- Layer buttons (top centre): switch between Satellite, Land cover, Heat, Greenery and Plant here. The app starts on Satellite and only changes layer when you click one.
-- Legend card (bottom right): shows the active layer, its colour key and an opacity slider (default 60%)
-- Info card (bottom left): area statistics, expected cooling for Plant here, and messages such as "Server not reachable"
-- Square tool (top right): draw a box, then press "Analyze this area". A small progress card shows the stage and percentage.
-- Click a Plant here zone for its expected cooling in °C
+## What each button does
+- City dropdown: loads a processed city's results, grouped into
+  Major cities and Extreme-heat towns. Unprocessed cities are greyed out.
+- Five layer buttons: Satellite, Land cover, Heat, Greenery, Plant here.
+  A button is disabled if that layer hasn't been produced for the
+  selected area yet.
+- Draw tool (left map toolbar): draws a rectangle and offers an
+  "Analyze this area" button, which sends the box to Track 3's server
+  for processing and shows a live progress bar.
 
-Both cards collapse. On a phone only one is open at a time.
-
-## API dependency
-Depends on Track 3's server at http://localhost:8000 (see `track3/API.md`).
-If the server is down, the info card says "Server not reachable".
+## API endpoints used
+- GET  /api/cities
+- GET  /api/results/{slug}
+- GET  /api/layer/{slug}/{layer}.png
+- GET  /api/priority/{slug}
+- GET  /api/priority/{slug}/summary
+- POST /api/analyze
+- GET  /api/jobs/{job_id}
 
 ## To change the server address
-Edit the `API` constant at the top of `app.js`.
+Edit the API constant at the top of app.js.
 
-## Notes
-- Plain HTML, CSS and JS. Leaflet and leaflet-draw load from unpkg; the page uses the system font, no web fonts.
-- Analyze needs the Track 1 worker running.
+## What is stubbed vs real
+- Preset cities with real data: Bhubaneswar, Titlagarh (more are added
+  as Track 1's batch processes them)
+- Drawing and analyzing a custom box currently runs through Track 3's
+  fake_worker.py, which copies Bhubaneswar's files rather than
+  processing the drawn area for real. This will switch to real
+  processing once the integration machine's worker.py is running
+  (Week 2, Day 5 onward).
+
+## Known limitations
+- The city dropdown does not reset its displayed name after a custom
+  area finishes analyzing; the map updates correctly but the dropdown
+  text can look out of sync.
