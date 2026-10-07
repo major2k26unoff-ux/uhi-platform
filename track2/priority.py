@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.warp import Resampling, reproject
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -40,6 +41,7 @@ RIVER_BUFFER_CELLS = 3    # skip blocks within 3 blocks (about 300 m) of a river
 TOP_N = 300           # zones written to priority.geojson
 MAX_PNG_SIDE = 1600
 DW_START, DW_END = "2024-03-01", "2024-05-31"
+LC_NODATA = 255       # "no data" for land cover; 0 is a real class (water)
 
 CLASSES = [("water_frac", 0), ("tree_frac", 1), ("grass_frac", 2), ("crops_frac", 4),
            ("shrub_frac", 5), ("built_frac", 6), ("bare_frac", 7)]
@@ -63,12 +65,32 @@ def progress(pct, stage):
 
 # ---------- reading and writing ----------
 
-def read_band(path, keep_zero=False):
-    """keep_zero=True for land cover: class 0 is water, but the file marks 0 as 'no data'."""
+def read_band(path):
+    """For continuous layers (lst, ndvi). Land cover must use align_landcover, never this."""
     with rasterio.open(path) as src:
-        if keep_zero:
-            return src.read(1).astype("float32"), src.transform
         return src.read(1, masked=True).astype("float32").filled(np.nan), src.transform
+
+
+def align_landcover(lc_path, ref_path):
+    """Land cover resampled onto the reference (lst.tif) pixel grid, as float32 with NaN = no data.
+
+    Two traps. (1) landcover.tif declares nodata=0, but Dynamic World class 0 is water, so the
+    file is read as a plain array and never through the nodata mask; LC_NODATA (255) marks
+    'no data' instead. (2) Earth Engine exports land cover with its origin one pixel off from
+    lst.tif, so trimming sizes is not enough: it is reprojected onto lst.tif's exact grid.
+    """
+    with rasterio.open(ref_path) as ref:
+        dst_transform, dst_crs, dst_shape = ref.transform, ref.crs, ref.shape
+    with rasterio.open(lc_path) as src:
+        lc_raw = src.read(1)
+        src_transform, src_crs = src.transform, src.crs
+    dst = np.full(dst_shape, LC_NODATA, dtype=lc_raw.dtype)
+    reproject(lc_raw, dst, src_transform=src_transform, src_crs=src_crs, src_nodata=None,
+              dst_transform=dst_transform, dst_crs=dst_crs, dst_nodata=LC_NODATA,
+              resampling=Resampling.nearest)
+    lc = dst.astype("float32")
+    lc[dst == LC_NODATA] = np.nan
+    return lc, dst_transform
 
 
 def write_png(rgba, path):
@@ -110,6 +132,7 @@ def fetch_landcover(out, meta):
                  .filterDate(DW_START, DW_END)
                  .select("label")
                  .mode()
+                 .unmask(LC_NODATA)   # no observations -> 255, not the export's masked 0 (= water)
                  .clip(aoi))
     path = out / "landcover.tif"
     geemap.ee_export_image(landcover, filename=str(path), scale=meta["scale_m"],
@@ -354,10 +377,13 @@ def compute_priority(slug, skip_fetch=False):
         fetch_landcover(out, meta)
 
     progress(30, "Building 100 m grid")
-    lc, transform = read_band(out / "landcover.tif", keep_zero=True)
-    lst, _ = read_band(out / "lst.tif")
-    ndvi, _ = read_band(out / "ndvi.tif")
-    lc, lst, ndvi = crop_to_common(lc, lst, ndvi)
+    lst, transform = read_band(out / "lst.tif")
+    ndvi, ndvi_transform = read_band(out / "ndvi.tif")
+    lc, lc_transform = align_landcover(out / "landcover.tif", out / "lst.tif")
+    if not (lc.shape == lst.shape == ndvi.shape and lc_transform == transform == ndvi_transform):
+        raise RuntimeError(f"Layers not on one grid after alignment: shapes {lc.shape} {lst.shape} {ndvi.shape}, "
+                           f"transforms {lc_transform} {transform} {ndvi_transform}")
+    lc, lst, ndvi = crop_to_common(lc, lst, ndvi)   # final guard; a no-op once aligned
     landcover_png(lc, out / "preview" / "landcover.png")
 
     k = max(1, round(CELL_M / meta["scale_m"]))
