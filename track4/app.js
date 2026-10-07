@@ -170,7 +170,10 @@ function showAreaInfo(summary) {
       el('p', { class: 'cooling-value' }, `${r2(summary.delta_t.top_mean_c)} °C`),
       el('p', { class: 'muted' },
         `On average, up to ${r2(summary.delta_t.top_max_c)} °C. Scenario: up to 20% more tree cover ` +
-        'per 100 m block, estimated from this area\'s own data. A planning guide, not a guarantee.')));
+        'per 100 m block, estimated from this area\'s own data. A planning guide, not a guarantee.'),
+      summary.canopy && el('p', { class: 'muted' },
+        `Planting all ${summary.top_zones} zones adds about ${fmt(summary.canopy.top_added_m2)} m² of tree canopy, ` +
+        `roughly ${fmt(summary.canopy.top_trees_est)} trees (assuming about ${summary.canopy.crown_m2_assumed} m² of crown per tree).`)));
   }
   setInfo(currentMeta.display_name, body);
 }
@@ -221,8 +224,14 @@ function zonePopup(p) {
     el('span', { class: 'cool' }, `${p.delta_t_c} °C`),
     `Now ${p.lst_now_c} °C, after about ${p.lst_after_c} °C`, el('br'),
     `Tree cover ${p.tree_pct_now}% to ${p.tree_pct_after}%`, el('br'),
-    `Built-up ${p.built_pct}%`);
+    `Built-up ${p.built_pct}%`,
+    p.canopy_added_m2 != null && el('br'),
+    p.canopy_added_m2 != null && `New tree canopy about ${fmt(p.canopy_added_m2)} m²`,
+    p.trees_est != null && el('br'),
+    p.trees_est != null && `About ${fmt(p.trees_est)} trees (assumes about 50 m² crown each)`);
 }
+
+const fmt = x => Number(x).toLocaleString('en-IN');
 
 // ================================================================
 // Draw a box, analyze it, watch progress

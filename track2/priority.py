@@ -39,6 +39,7 @@ WET_BLOCK = 0.2           # a block at least 20 % water counts as wet
 RIVER_MIN_CELLS = 20      # wet blocks joined together, at least this many = river or big lake (0.2 km2)
 RIVER_BUFFER_CELLS = 3    # skip blocks within 3 blocks (about 300 m) of a river: riverbeds, sandbanks
 TOP_N = 300           # zones written to priority.geojson
+TREE_CROWN_M2 = 50    # assumed crown area of one mature tree (about 4 m radius); used only for the tree count
 MAX_PNG_SIDE = 1600
 DW_START, DW_END = "2024-03-01", "2024-05-31"
 LC_NODATA = 255       # "no data" for land cover; 0 is a real class (water)
@@ -294,6 +295,21 @@ def score_cells(df, model, blocked=None):
 
 # ---------- step 5: outputs ----------
 
+def cell_area_m2(df):
+    """Real ground area of each block in square metres (a degree of longitude shrinks away from the equator)."""
+    height = (df.north - df.south).abs() * 110_574
+    width = (df.east - df.west).abs() * 111_320 * np.cos(np.radians(df.lat))
+    return height * width
+
+
+def add_canopy(df):
+    """New tree canopy each block would get under the scenario, and a rough tree count."""
+    df = df.copy()
+    df["canopy_added_m2"] = df.added * cell_area_m2(df)
+    df["trees_est"] = df.canopy_added_m2 / TREE_CROWN_M2
+    return df
+
+
 def zone_feature(r):
     ring = [[r.west, r.south], [r.east, r.south], [r.east, r.north], [r.west, r.north], [r.west, r.south]]
     return {
@@ -309,6 +325,8 @@ def zone_feature(r):
             "tree_pct_now": int(round(100 * r.tree_frac)),
             "tree_pct_after": int(round(100 * (r.tree_frac + r.added))),
             "built_pct": int(round(100 * r.built_frac)),
+            "canopy_added_m2": int(round(float(r.canopy_added_m2), -1)),
+            "trees_est": int(round(float(r.trees_est))),
             "lat": round(float(r.lat), 5),
             "lon": round(float(r.lon), 5),
         },
@@ -316,6 +334,7 @@ def zone_feature(r):
 
 
 def write_outputs(out, slug, df, shape, k, metrics_green, metrics_land):
+    df = add_canopy(df)
     df.to_csv(out / "grid_features.csv", index=False)
 
     top = df[df.eligible].nsmallest(TOP_N, "rank")
@@ -352,6 +371,13 @@ def write_outputs(out, slug, df, shape, k, metrics_green, metrics_land):
             "top_mean_c": round(float(top.delta_t.mean()), 2) if len(top) else 0.0,
             "top_max_c": round(float(top.delta_t.max()), 2) if len(top) else 0.0,
             "eligible_median_c": round(float(elig.delta_t.median()), 2) if len(elig) else 0.0,
+        },
+        "canopy": {
+            "top_added_m2": int(round(float(top.canopy_added_m2.sum()), -2)) if len(top) else 0,
+            "top_trees_est": int(round(float(top.trees_est.sum()), -1)) if len(top) else 0,
+            "crown_m2_assumed": TREE_CROWN_M2,
+            "note": "Canopy follows from the scenario. The tree count assumes about "
+                    f"{TREE_CROWN_M2} m2 of crown per mature tree (real trees range about 30 to 80 m2).",
         },
         "models": {"with_greenness": metrics_green, "land_cover_only": metrics_land},
         "note": "Estimated from this area's own data. A statistical association, not a physical simulation.",
