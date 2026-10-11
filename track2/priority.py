@@ -218,10 +218,11 @@ class SeedAverage:
 def train(df, features, monotone=None, seeds=None):
     """Score on a GEOGRAPHIC split (west trains, east tests), then refit on every cell for the scenario."""
     seeds = list(range(N_SEEDS)) if seeds is None else list(seeds)
-    # n_jobs=1: XGBoost adds up histogram sums in a different order with each thread count,
-    # so the same data gave slightly different models on a 2-core and an 8-core machine
-    # (Week 3 check: Bhubaneswar best block 3.21 vs 3.43 C). One thread gives the same
-    # model on every machine. Training takes seconds, so speed does not matter here.
+    # n_jobs=1: with several threads XGBoost adds histogram sums in a different order, so the
+    # same data gave slightly different models from run to run and between machines with
+    # different CPU counts. One thread makes every run on one machine identical. Linux and
+    # Windows builds of XGBoost can still differ slightly (Week 3 check: top-300 mean within
+    # 0.1 C); the official results are the ones made on the demo machine.
     params = dict(n_estimators=300, max_depth=5, learning_rate=0.05, subsample=0.8, n_jobs=1)
     if monotone:
         params["monotone_constraints"] = "(" + ",".join(str(monotone.get(f, 0)) for f in features) + ")"
