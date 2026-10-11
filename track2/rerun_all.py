@@ -29,13 +29,23 @@ for meta_path in sorted(DATA.glob("*/meta.json")):
         cmd.append("--skip-fetch")
     print(f"\n===== {slug} =====", flush=True)
     t0 = time.time()
-    run = subprocess.run(cmd, cwd=HERE, capture_output=True, text=True)
+    for attempt in (1, 2):
+        run = subprocess.run(cmd, cwd=HERE, capture_output=True, text=True)
+        if run.returncode == 0:
+            break
+        print(f"FAILED (attempt {attempt}), return code {run.returncode}")
+        print("--- last 20 lines of stdout ---\n" + "\n".join(run.stdout.splitlines()[-20:]))
+        print("--- last 20 lines of stderr ---\n" + "\n".join(run.stderr.splitlines()[-20:]), flush=True)
+        if attempt == 1:
+            print("Retrying in 5 seconds ...", flush=True)
+            time.sleep(5)
     mins = f"{(time.time() - t0) / 60:.1f} min"
     if run.returncode != 0:
-        last = (run.stderr.strip().splitlines() or ["no error text"])[-1]
-        print(run.stderr[-1500:])
-        results.append((slug, f"FAILED: {last}", mins))
+        last = (run.stderr.strip().splitlines() or run.stdout.strip().splitlines() or ["no output"])[-1]
+        results.append((slug, f"FAILED twice, return code {run.returncode}: {last}", mins))
         continue
+    if attempt == 2:
+        mins += " (retried)"
     s = json.loads((folder / "priority_summary.json").read_text())
     note = "low data" if s.get("low_data") else ""
     results.append((slug, f"ok  blocks {s['cells_total']}  top-300 {s['delta_t']['top_mean_c']} C  "
