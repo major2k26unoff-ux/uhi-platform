@@ -34,12 +34,14 @@ NO_PLANT = Path(__file__).resolve().parent / "no_plant.json"   # hand-drawn no-p
 CELL_M = 100          # grid cell size in metres
 SCENARIO_ADD = 0.20   # add up to 20 percentage points of tree cover per cell
 MIN_ROOM = 0.05       # a cell needs at least 5 % of TREE_SOURCES to plant on
+MAX_TREE_NOW = 0.5    # a cell that is already half trees or more is not a planting zone (see score_cells)
 TREE_SOURCES = ["built_frac", "grass_frac", "shrub_frac", "crops_frac"]   # trees replace these, in order
 WET_BLOCK = 0.2           # a block at least 20 % water counts as wet
 RIVER_MIN_CELLS = 20      # wet blocks joined together, at least this many = river or big lake (0.2 km2)
 RIVER_BUFFER_CELLS = 3    # skip blocks within 3 blocks (about 300 m) of a river: riverbeds, sandbanks
 TOP_N = 300           # zones written to priority.geojson
 TREE_CROWN_M2 = 50    # assumed crown area of one mature tree (about 4 m radius); used only for the tree count
+N_SEEDS = 5           # models averaged per fit, each with its own random seed (steadier ranking)
 MAX_PNG_SIDE = 1600
 DW_START, DW_END = "2024-03-01", "2024-05-31"
 LC_NODATA = 255       # "no data" for land cover; 0 is a real class (water)
@@ -189,16 +191,44 @@ def build_grid(lc, lst, ndvi, transform, k):
 
 # ---------- step 3: two models ----------
 
-def train(df, features, monotone=None):
+class SeedAverage:
+    """Several XGBoost models, each trained with a different random seed, predicting as one.
+
+    One model's ranking changed a lot with its random seed (Week 3 check: two seeds shared only
+    about half of their top-300 zones), because many blocks have almost the same predicted
+    cooling. Averaging N_SEEDS models keeps the ranking steady while the numbers barely move.
+    """
+
+    def __init__(self, params, seeds):
+        self.models = [XGBRegressor(**params, random_state=s) for s in seeds]
+
+    def fit(self, X, y):
+        for m in self.models:
+            m.fit(X, y)
+        return self
+
+    def predict(self, X):
+        return np.mean([m.predict(X) for m in self.models], axis=0)
+
+    @property
+    def feature_importances_(self):
+        return np.mean([m.feature_importances_ for m in self.models], axis=0)
+
+
+def train(df, features, monotone=None, seeds=None):
     """Score on a GEOGRAPHIC split (west trains, east tests), then refit on every cell for the scenario."""
-    params = dict(n_estimators=300, max_depth=5, learning_rate=0.05,
-                  subsample=0.8, random_state=42, n_jobs=-1)
+    seeds = list(range(N_SEEDS)) if seeds is None else list(seeds)
+    # n_jobs=1: XGBoost adds up histogram sums in a different order with each thread count,
+    # so the same data gave slightly different models on a 2-core and an 8-core machine
+    # (Week 3 check: Bhubaneswar best block 3.21 vs 3.43 C). One thread gives the same
+    # model on every machine. Training takes seconds, so speed does not matter here.
+    params = dict(n_estimators=300, max_depth=5, learning_rate=0.05, subsample=0.8, n_jobs=1)
     if monotone:
         params["monotone_constraints"] = "(" + ",".join(str(monotone.get(f, 0)) for f in features) + ")"
 
     split = df.lon.median()
     train_part, test_part = df[df.lon <= split], df[df.lon > split]
-    scorer = XGBRegressor(**params).fit(train_part[features], train_part.lst_mean)
+    scorer = SeedAverage(params, seeds).fit(train_part[features], train_part.lst_mean)
     pred = scorer.predict(test_part[features])
     metrics = {
         "features": features,
@@ -207,10 +237,11 @@ def train(df, features, monotone=None):
         "r2": round(float(r2_score(test_part.lst_mean, pred)), 3),
         "train_cells": int(len(train_part)),
         "test_cells": int(len(test_part)),
+        "seeds_averaged": len(seeds),
     }
     if monotone:
         metrics["monotone"] = monotone
-    final = XGBRegressor(**params).fit(df[features], df.lst_mean)
+    final = SeedAverage(params, seeds).fit(df[features], df.lst_mean)
     return final, metrics
 
 
@@ -280,7 +311,10 @@ def score_cells(df, model, blocked=None):
     df["added"] = added
     # Model versus model: the same model predicts both, so its own bias cancels out.
     df["delta_t"] = model.predict(df[FEATURES_LAND]) - model.predict(after[FEATURES_LAND])
-    df["eligible"] = (df.added >= MIN_ROOM) & (df.water_frac < 0.05)
+    # MAX_TREE_NOW: blocks that are already mostly trees are not where planting is needed, and the
+    # model is least reliable there (Week 3 photo check: a Banda block at 93 % trees got 4.2 C for
+    # 7 more points, because almost no training blocks are near 100 % trees).
+    df["eligible"] = (df.added >= MIN_ROOM) & (df.water_frac < 0.05) & (df.tree_frac < MAX_TREE_NOW)
     if blocked is not None:
         df["eligible"] = df.eligible & ~blocked
 

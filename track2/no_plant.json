@@ -61,6 +61,16 @@
         19.128282,
         72.959879
       ]
+    },
+    {
+      "name": "Mumbai airport (south-east runway end)",
+      "reason": "Runway end and airfield grass just south of the first airport box (Week 3, Day 2 photo check, rank 2)",
+      "bounds": [
+        19.08,
+        72.868,
+        19.0816,
+        72.879
+      ]
     }
   ],
   "titlagarh": [
@@ -92,6 +102,102 @@
         83.199201,
         20.279123,
         83.202489
+      ]
+    },
+    {
+      "name": "Stone quarry north-east of Titlagarh",
+      "reason": "Open quarry pits and bare rock; not plantable (Week 3, Day 2 photo check, rank 4)",
+      "bounds": [
+        20.2925,
+        83.1872,
+        20.2966,
+        83.1925
+      ]
+    }
+  ],
+  "hyderabad": [
+    {
+      "name": "Begumpet Airport (runway, taxiways, apron)",
+      "reason": "Runway, hangars and airfield grass look bare and hot; not plantable (Week 3, Day 2 photo check, ranks 2-9; box widened north after the third round showed the north-west apron)",
+      "bounds": [
+        17.4508,
+        78.4535,
+        17.459,
+        78.4855
+      ]
+    },
+    {
+      "name": "Paved parade ground south of the Outer Ring Road, Langar Houz area",
+      "reason": "Large paved ground; not plantable (Week 3, Day 2 photo check, rank 1)",
+      "bounds": [
+        17.3726,
+        78.3893,
+        17.3758,
+        78.3929
+      ]
+    },
+    {
+      "name": "Secunderabad parade ground (open event ground beside the main road)",
+      "reason": "Bare open ground used for events; not a planting site (Week 3, Day 2 photo check, second round ranks 3, 7, 8)",
+      "bounds": [
+        17.4436,
+        78.4911,
+        17.4459,
+        78.4958
+      ]
+    }
+  ],
+  "delhi": [
+    {
+      "name": "Indira Gandhi International Airport (runways, taxiways, aprons)",
+      "reason": "Airfield grass and runways look bare and hot; not plantable (Week 3, Day 2 photo check, ranks 5, 6, 8, 9)",
+      "bounds": [
+        28.541,
+        77.062,
+        28.573,
+        77.123
+      ]
+    },
+    {
+      "name": "Ash and soil dump north of the NTPC Eco Park, Badarpur",
+      "reason": "Bare ash heaps and sand; not plantable as is (Week 3, Day 2 photo check, ranks 4 and 7)",
+      "bounds": [
+        28.5205,
+        77.3075,
+        28.5265,
+        77.327
+      ]
+    },
+    {
+      "name": "Indira Gandhi International Airport (southern runway strip)",
+      "reason": "Runway and airfield grass south of the first box (Week 3, Day 2 photo check, second round ranks 4, 7, 10)",
+      "bounds": [
+        28.5375,
+        77.062,
+        28.541,
+        77.116
+      ]
+    }
+  ],
+  "bengaluru": [
+    {
+      "name": "HAL Airport (runway, taxiways, aprons)",
+      "reason": "Runway and airfield grass look bare and hot; not plantable (Week 3, Day 2 photo check, ranks 1, 3, 4, 6, 8)",
+      "bounds": [
+        12.9475,
+        77.649,
+        12.9545,
+        77.691
+      ]
+    },
+    {
+      "name": "Bellandur Lake and its marshy bed",
+      "reason": "Open water under floating weeds and dried lake bed, which the land-cover labels do not call water; not plantable (Week 3, Day 2 photo check, second round ranks 2, 3, 7, 8)",
+      "bounds": [
+        12.9294,
+        77.6411,
+        12.9391,
+        77.6778
       ]
     }
   ]
