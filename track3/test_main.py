@@ -92,3 +92,57 @@ def test_bad_boxes_are_refused(client, box):
 def test_unknown_and_invalid_jobs(client):
     assert client.get("/api/jobs/0000ffff").status_code == 404
     assert client.get("/api/jobs/not-a-job").status_code == 400
+    # ---------- Week 3: zones as a CSV file ----------
+
+# ---------- Week 3: same-box reuse ----------
+
+BOX = {"south": 20.2, "west": 85.7, "north": 20.3, "east": 85.8}
+
+
+def finish_job(job_id, status="done"):
+    """Pretend the worker finished a job: write its status file and, if done, its area folder."""
+    request = json.loads((main.JOBS / f"{job_id}.request.json").read_text())
+    (main.JOBS / f"{job_id}.status.json").write_text(json.dumps({"job_id": job_id, "status": status}))
+    if status == "done":
+        (main.DATA_ROOT / request["slug"]).mkdir(parents=True, exist_ok=True)
+        (main.DATA_ROOT / request["slug"] / "meta.json").write_text("{}")
+
+
+def test_same_box_while_queued_reuses_the_job(client):
+    first = client.post("/api/analyze", json=BOX).json()
+    second = client.post("/api/analyze", json=BOX).json()
+    assert second["job_id"] == first["job_id"] and second["reused"] is True
+    assert len(list(main.JOBS.glob("*.request.json"))) == 1
+
+
+def test_same_box_after_done_returns_the_old_result(client):
+    first = client.post("/api/analyze", json=BOX).json()
+    finish_job(first["job_id"])
+    second = client.post("/api/analyze", json=BOX).json()
+    assert second["job_id"] == first["job_id"] and second["status"] == "done"
+
+
+def test_failed_box_can_be_tried_again(client):
+    first = client.post("/api/analyze", json=BOX).json()
+    finish_job(first["job_id"], status="failed")
+    second = client.post("/api/analyze", json=BOX).json()
+    assert second["job_id"] != first["job_id"] and second["reused"] is False
+
+
+def test_done_but_files_deleted_runs_again(client):
+    first = client.post("/api/analyze", json=BOX).json()
+    finish_job(first["job_id"])
+    (main.DATA_ROOT / first["slug"] / "meta.json").unlink()
+    assert client.post("/api/analyze", json=BOX).json()["job_id"] != first["job_id"]
+
+
+def test_tiny_rounding_still_counts_as_same_box(client):
+    first = client.post("/api/analyze", json=BOX).json()
+    nearly = {k: v + 0.00001 for k, v in BOX.items()}
+    assert client.post("/api/analyze", json=nearly).json()["job_id"] == first["job_id"]
+
+
+def test_different_box_gets_a_new_job(client):
+    first = client.post("/api/analyze", json=BOX).json()
+    other = dict(BOX, east=85.81)
+    assert client.post("/api/analyze", json=other).json()["job_id"] != first["job_id"]

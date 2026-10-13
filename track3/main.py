@@ -1,5 +1,5 @@
 """
-Urban Heat Island API - Week 2.
+Urban Heat Island API - Week 3.
 
 Run from the track3 folder:
     uvicorn main:app --reload --port 8000
@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_ROOT = ROOT / "data"          # Week 2: real data. (Week 1 was Path("stub_data"))
+DATA_ROOT = ROOT / "data"          
 JOBS = DATA_ROOT / "jobs"
 PRESETS = ROOT / "presets.json"
 
@@ -166,9 +166,45 @@ def validate_aoi(box: Box):
 
 
 @app.post("/api/analyze", status_code=202)
+def same_box(a: dict, b: dict) -> bool:
+    """Two boxes count as the same if every corner matches to 4 decimals (about 10 m)."""
+    return all(round(a[k], 4) == round(b[k], 4) for k in ("south", "west", "north", "east"))
+
+
+def find_earlier_job(box: dict):
+    """An earlier job for the same box that is waiting, running, or done with its files still on disk.
+    Failed jobs are ignored, so a failed box can always be tried again."""
+    if not JOBS.exists():
+        return None
+    for request_path in sorted(JOBS.glob("*.request.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            request = json.loads(request_path.read_text())
+        except (ValueError, OSError):
+            continue                                   # half-written or unreadable: skip it
+        bbox = request.get("bbox")
+        if not bbox or "job_id" not in request or not same_box(bbox, box):
+            continue
+        status_path = JOBS / f"{request['job_id']}.status.json"
+        try:
+            status = json.loads(status_path.read_text()).get("status") if status_path.exists() else "queued"
+        except (ValueError, OSError):
+            continue
+        if status in ("queued", "running"):
+            return request, status
+        if status == "done" and (DATA_ROOT / request["slug"] / "meta.json").exists():
+            return request, status
+    return None
+@app.post("/api/analyze", status_code=202)
 def analyze(req: AnalyzeRequest):
-    """Queue a new area for processing. Returns at once; the worker does the slow part."""
+    """Queue a new area for processing. Returns at once; the worker does the slow part.
+    If the same box was already done (or is in progress), that job is returned instead."""
     check_box(req.south, req.west, req.north, req.east)
+    box = {"south": req.south, "west": req.west, "north": req.north, "east": req.east}
+    earlier = find_earlier_job(box)
+    if earlier:
+        request, status = earlier
+        return {"job_id": request["job_id"], "slug": request["slug"], "status": status,
+                "status_url": f"/api/jobs/{request['job_id']}", "reused": True}
     job_id = uuid.uuid4().hex[:8]
     slug = f"custom-{job_id}"
     JOBS.mkdir(parents=True, exist_ok=True)
@@ -180,8 +216,8 @@ def analyze(req: AnalyzeRequest):
         "source": "website",
         "created_at": datetime.now().isoformat(timespec="seconds"),
     })
-    return {"job_id": job_id, "slug": slug, "status": "queued", "status_url": f"/api/jobs/{job_id}"}
-
+    return {"job_id": job_id, "slug": slug, "status": "queued", "status_url": f"/api/jobs/{job_id}",
+            "reused": False}
 
 @app.get("/api/jobs/{job_id}")
 def job_status(job_id: str):
