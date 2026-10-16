@@ -165,7 +165,6 @@ def validate_aoi(box: Box):
     return {"valid": True}
 
 
-@app.post("/api/analyze", status_code=202)
 def same_box(a: dict, b: dict) -> bool:
     """Two boxes count as the same if every corner matches to 4 decimals (about 10 m)."""
     return all(round(a[k], 4) == round(b[k], 4) for k in ("south", "west", "north", "east"))
@@ -194,6 +193,8 @@ def find_earlier_job(box: dict):
         if status == "done" and (DATA_ROOT / request["slug"] / "meta.json").exists():
             return request, status
     return None
+
+
 @app.post("/api/analyze", status_code=202)
 def analyze(req: AnalyzeRequest):
     """Queue a new area for processing. Returns at once; the worker does the slow part.
@@ -218,6 +219,7 @@ def analyze(req: AnalyzeRequest):
     })
     return {"job_id": job_id, "slug": slug, "status": "queued", "status_url": f"/api/jobs/{job_id}",
             "reused": False}
+
 
 @app.get("/api/jobs/{job_id}")
 def job_status(job_id: str):
