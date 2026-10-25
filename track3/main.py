@@ -1,9 +1,11 @@
 """
-Urban Heat Island API - Week 3.
+Urban Heat Island API - Week 3 (version 3).
 
 Run from the track3 folder:
     uvicorn main:app --reload --port 8000
 """
+import csv
+import io
 import json
 import os
 import re
@@ -14,7 +16,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +31,7 @@ JOB_PATTERN = re.compile(r"^[a-f0-9]{8}$")
 app = FastAPI(
     title="Urban Heat Island API",
     description="Serves satellite heat and greenery layers, and cooling priority zones",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 app.add_middleware(
@@ -143,6 +145,26 @@ def get_priority_summary(slug: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"No priority summary for '{slug}' yet")
     return json.loads(path.read_text())
+
+
+ZONE_COLUMNS = ["rank", "tier_label", "lat", "lon", "delta_t_c", "lst_now_c", "lst_after_c",
+                "tree_pct_now", "tree_pct_after", "built_pct", "canopy_added_m2", "trees_est"]
+
+
+@app.get("/api/priority/{slug}/zones.csv")
+def get_zones_csv(slug: str):
+    """The top planting zones as a spreadsheet file, one row per zone."""
+    path = area_dir(slug) / "priority.geojson"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"No priority zones for '{slug}' yet")
+    features = json.loads(path.read_text()).get("features", [])
+    text = io.StringIO()
+    writer = csv.DictWriter(text, fieldnames=ZONE_COLUMNS, extrasaction="ignore")
+    writer.writeheader()
+    for feature in features:
+        writer.writerow(feature.get("properties", {}))   # columns a file does not have stay empty
+    return Response(content=text.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{slug}_zones.csv"'})
 
 
 # ---------- analysing a new box ----------

@@ -146,3 +146,32 @@ def test_different_box_gets_a_new_job(client):
     first = client.post("/api/analyze", json=BOX).json()
     other = dict(BOX, east=85.81)
     assert client.post("/api/analyze", json=other).json()["job_id"] != first["job_id"]
+
+
+# ---------- Week 3: zones as a CSV file ----------
+
+def test_zones_csv(client):
+    zone = {"type": "Feature", "geometry": None, "properties": {
+        "rank": 1, "tier_label": "Highest", "lat": 20.05, "lon": 85.05, "delta_t_c": 1.2,
+        "lst_now_c": 40.1, "lst_after_c": 38.9, "tree_pct_now": 5, "tree_pct_after": 25,
+        "built_pct": 60, "canopy_added_m2": 2000, "trees_est": 40}}
+    (main.DATA_ROOT / "testville" / "priority.geojson").write_text(
+        json.dumps({"type": "FeatureCollection", "features": [zone]}))
+    r = client.get("/api/priority/testville/zones.csv")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert "testville_zones.csv" in r.headers["content-disposition"]
+    lines = r.text.strip().splitlines()
+    assert lines[0].startswith("rank,tier_label,lat,lon") and len(lines) == 2
+    assert lines[1].startswith("1,Highest,20.05,85.05")
+
+
+def test_zones_csv_old_file_without_canopy(client):
+    zone = {"type": "Feature", "geometry": None, "properties": {"rank": 1, "tier_label": "High"}}
+    (main.DATA_ROOT / "testville" / "priority.geojson").write_text(
+        json.dumps({"type": "FeatureCollection", "features": [zone]}))
+    assert client.get("/api/priority/testville/zones.csv").text.splitlines()[1].startswith("1,High,")
+
+
+def test_zones_csv_missing_area(client):
+    assert client.get("/api/priority/nowhere/zones.csv").status_code == 404
+    assert client.get("/api/priority/Bad_Slug/zones.csv").status_code == 400
