@@ -253,6 +253,18 @@ select:hover { border-color: #b9c6c0; }
   margin: var(--space-1) 0;
 }
 
+.download {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+.download:hover { color: var(--accent-hover); }
+.download:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
 .btn-primary {
   width: 100%;
   min-height: var(--target);

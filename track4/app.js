@@ -173,7 +173,9 @@ function showAreaInfo(summary) {
         'per 100 m block, estimated from this area\'s own data. A planning guide, not a guarantee.'),
       summary.canopy && el('p', { class: 'muted' },
         `Planting all ${summary.top_zones} zones adds about ${fmt(summary.canopy.top_added_m2)} m² of tree canopy, ` +
-        `roughly ${fmt(summary.canopy.top_trees_est)} trees (assuming about ${summary.canopy.crown_m2_assumed} m² of crown per tree).`)));
+        `roughly ${fmt(summary.canopy.top_trees_est)} trees (assuming about ${summary.canopy.crown_m2_assumed} m² of crown per tree).`),
+      el('a', { class: 'download', href: `${API}/api/priority/${currentSlug}/zones.csv`, download: '' },
+        'Download the zones as a spreadsheet (CSV)')));
   }
   setInfo(currentMeta.display_name, body);
 }
@@ -342,8 +344,23 @@ const LEGENDS = {
     note: 'Click a zone for its expected cooling.' }
 };
 
+// Heat colours are stretched per area (Track 1 saves the range in meta.json as lst_preview_c),
+// so a 55 °C desert town and a 40 °C coastal city both show their own hot and cool spots.
+function legendFor(layer) {
+  const range = currentMeta && currentMeta.lst_preview_c;
+  if (layer !== 'lst' || !range) return LEGENDS[layer];
+  const [lo, hi] = range;
+  const colours = ['#fcffa4', '#f98e09', '#bc3754', '#57106e', '#000004'];
+  const items = colours.map((c, i) => {
+    const t = Math.round(hi - (hi - lo) * i / 4);
+    return [c, i === 0 ? `${t} °C and above` : i === 4 ? `${t} °C and below` : `${t} °C`];
+  });
+  return { title: 'Ground temperature', items,
+           note: 'Colours are scaled to this area. Compare areas using the numbers in the info card.' };
+}
+
 function updateLegend(layer) {
-  const legend = LEGENDS[layer];
+  const legend = legendFor(layer);
   $('active-layer-name').textContent = layerName(layer);
   $('legend-title').textContent = legend.title;
   $('legend-rows').replaceChildren(...legend.items.map(([colour, label]) => {
