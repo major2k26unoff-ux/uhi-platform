@@ -92,6 +92,7 @@ async function loadArea(slug) {
 
 // Draws the chosen layer. Returns false when the layer is missing for this area.
 function showCurrentLayer() {
+  clearBlock();
   if (currentOverlay) { map.removeLayer(currentOverlay); currentOverlay = null; }
   if (zonesLayer) { map.removeLayer(zonesLayer); zonesLayer = null; }
   updateLegend(currentLayer);
@@ -155,6 +156,13 @@ function stat(label, value, lead = false) {
     el('span', { class: 'stat-value' }, value));
 }
 
+// The scenario uses the land-cover-only model. Below R² 0.2 its cooling numbers are uncertain
+// (same rule as track2/cross_city.py).
+function weakModel(summary) {
+  const m = summary.models && summary.models.land_cover_only;
+  return Boolean(m && typeof m.r2 === 'number' && m.r2 < 0.2);
+}
+
 function showAreaInfo(summary) {
   const st = currentMeta.stats;
   const body = [
@@ -174,6 +182,9 @@ function showAreaInfo(summary) {
       summary.canopy && el('p', { class: 'muted' },
         `Planting all ${summary.top_zones} zones adds about ${fmt(summary.canopy.top_added_m2)} m² of tree canopy, ` +
         `roughly ${fmt(summary.canopy.top_trees_est)} trees (assuming about ${summary.canopy.crown_m2_assumed} m² of crown per tree).`),
+      weakModel(summary) && el('p', { class: 'caution' },
+        `Weak model fit in this area (land-cover R² ${Number(summary.models.land_cover_only.r2).toFixed(3)}, below 0.2). ` +
+        'Treat these cooling numbers as rough.'),
       el('a', { class: 'download', href: `${API}/api/priority/${currentSlug}/zones.csv`, download: '' },
         'Download the zones as a spreadsheet (CSV)')));
   }
@@ -206,6 +217,7 @@ async function showZones() {
     ]);
     if (currentLayer !== 'priority' || slug !== currentSlug) return;
     zonesLayer = L.geoJSON(geo, {
+      bubblingMouseEvents: false,   // a zone click opens the zone popup, not the any-block popup
       style: f => ({ color: TIER_COLOURS[f.properties.tier], weight: 1.5, fillOpacity: 0.35 }),
       onEachFeature: (f, layer) => layer.bindPopup(() => zonePopup(f.properties), {
         // keep popups clear of the floating cards at the top
@@ -234,6 +246,68 @@ function zonePopup(p) {
 }
 
 const fmt = x => Number(x).toLocaleString('en-IN');
+
+// ================================================================
+// Any 100 m block: click anywhere inside the area
+// ================================================================
+const TIER_NAMES = { 1: 'Highest', 2: 'High', 3: 'Medium', 4: 'Low' };
+let blockOutline = null;
+let drawing = false;
+
+function clearBlock() {
+  if (blockOutline) { map.removeLayer(blockOutline); blockOutline = null; }
+}
+
+function blockPopup(b) {
+  const land = b.land_pct;
+  const mix = [['trees', 'Trees'], ['built', 'Built-up'], ['crops', 'Crops'], ['grass', 'Grass'],
+               ['shrub', 'Shrub'], ['bare', 'Bare'], ['water', 'Water']]
+    .filter(([k]) => land[k] > 0).map(([k, label]) => `${label} ${land[k]}%`).join(', ');
+  const head = [
+    el('div', { class: 'zone-title' }, 'This 100 m block'),
+    `Ground temperature ${b.lst_now_c} °C`, el('br'),
+    `Greenness (NDVI) ${b.ndvi}`, el('br'),
+    mix || 'Land cover unknown'
+  ];
+  if (!b.eligible) {
+    return el('div', { class: 'zone-popup' }, ...head,
+      el('p', { class: 'block-no' }, 'Not a planting zone: ' + b.reason));
+  }
+  return el('div', { class: 'zone-popup' }, ...head,
+    el('p', { class: 'block-rank' },
+      `Rank ${fmt(b.rank)} of ${fmt(b.ranked_blocks)} planting blocks (${TIER_NAMES[b.tier] || ''} priority)`),
+    'Expected cooling',
+    el('span', { class: 'cool' }, `${b.delta_t_c} °C`),
+    `Now ${b.lst_now_c} °C, after about ${b.lst_after_c} °C`, el('br'),
+    `Tree cover ${land.trees}% to ${b.tree_pct_after}%`,
+    b.canopy_added_m2 != null && el('br'),
+    b.canopy_added_m2 != null && `New tree canopy about ${fmt(b.canopy_added_m2)} m², about ${fmt(b.trees_est)} trees`);
+}
+
+map.on('draw:drawstart', () => { drawing = true; });
+map.on('draw:drawstop', () => { drawing = false; });
+map.on('popupclose', clearBlock);
+
+map.on('click', async e => {
+  if (drawing || !currentSlug || !currentBounds) return;
+  if (!L.latLngBounds(currentBounds).contains(e.latlng)) return;
+  const slug = currentSlug;
+  const { lat, lng } = e.latlng;
+  try {
+    const b = await getJSON(`/api/cell/${slug}?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`);
+    if (slug !== currentSlug) return;
+    // open the popup first: opening it closes the old one, and popupclose clears the old outline
+    L.popup({ autoPanPaddingTopLeft: [16, $('top-ui').offsetHeight + 24] })
+      .setLatLng(e.latlng).setContent(blockPopup(b)).openOn(map);
+    clearBlock();
+    const [s, w, n, east] = b.bounds;
+    blockOutline = L.rectangle([[s, w], [n, east]],
+      { color: '#0b3d2e', weight: 2, fill: false, dashArray: '4 3', interactive: false }).addTo(map);
+  } catch (err) {
+    // outside the grid, cloud gap, or an older area without block data: nothing to show
+    if (err.offline) showServerDown();
+  }
+});
 
 // ================================================================
 // Draw a box, analyze it, watch progress
@@ -341,7 +415,7 @@ const LEGENDS = {
   priority: { title: 'Planting priority', items: [
     ['#67000d', 'Highest (top 10%)'], ['#cb181d', 'High'],
     ['#fb6a4a', 'Medium'], ['#fcbba1', 'Low']],
-    note: 'Click a zone for its expected cooling.' }
+    note: 'Click a coloured zone, or any other block, for its numbers.' }
 };
 
 // Heat colours are stretched per area (Track 1 saves the range in meta.json as lst_preview_c),
@@ -368,7 +442,8 @@ function updateLegend(layer) {
     swatch.style.background = colour;
     return el('div', { class: 'legend-row' }, swatch, label);
   }));
-  $('legend-note').textContent = legend.note || '';
+  const hint = layer !== 'priority' && currentMeta ? ' Click any 100 m block for its numbers.' : '';
+  $('legend-note').textContent = (legend.note || '') + hint;
 }
 
 function setActiveButton(layer) {
