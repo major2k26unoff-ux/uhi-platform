@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 from settings import ee_project
+from lst_scale import lst_range
 
 import requests
 import time
@@ -254,6 +255,8 @@ def make_previews(out):
 
     for name, (cmap, vmin, vmax) in PREVIEW_STYLE.items():
         arr = read_band(out / f"{name}.tif")
+        if name == "lst":
+            vmin, vmax = lst_range(arr)   # per-area range, also saved in meta.json
         save_png(
             arr,
             preview / f"{name}.png",
@@ -329,6 +332,7 @@ def write_meta(out, slug, display_name, scale, n_s2, n_ls):
             "lst_mean_c": round(float(np.nanmean(lst)), 1),
             "ndvi_mean": round(float(np.nanmean(ndvi)), 2),
         },
+        "lst_preview_c": list(lst_range(lst)),
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
 
