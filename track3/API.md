@@ -13,6 +13,7 @@ Docs page: http://localhost:8000/docs
 | GET | /api/priority/{slug} | Top 300 planting zones, GeoJSON |
 | GET | /api/priority/{slug}/summary | Expected cooling, model accuracy, scenario |
 | GET | /api/priority/{slug}/zones.csv | Top planting zones as a spreadsheet file |
+| GET | /api/cell/{slug}?lat=..&lon=.. | The 100 m block under one point: land mix, temperature, rank and cooling, or why it is not a planting zone |
 | POST | /api/validate-aoi | Whether a drawn box is acceptable |
 | POST | /api/analyze | Queue a new area. Replies 202 with `job_id` and `reused` |
 | GET | /api/jobs/{job_id} | `queued`, `running`, `done` or `failed`, with progress |

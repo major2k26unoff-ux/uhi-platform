@@ -7,6 +7,7 @@ Run from the track3 folder:
 import csv
 import io
 import json
+import math
 import os
 import re
 import uuid
@@ -165,6 +166,86 @@ def get_zones_csv(slug: str):
         writer.writerow(feature.get("properties", {}))   # columns a file does not have stay empty
     return Response(content=text.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="{slug}_zones.csv"'})
+
+
+# ---------- one 100 m block, anywhere in an area ----------
+# The map draws only the top 300 zones. Every other block can still be clicked: the website asks
+# this endpoint, which reads Track 2's grid_features.csv (one row per 100 m block).
+# Same rules as track2/priority.py score_cells(); kept here only to explain a "no".
+MIN_ROOM = 0.05           # at least 5 points of tree cover can be added
+MAX_WATER = 0.05          # under 5% water
+MAX_TREE_NOW = 0.5        # under 50% trees already
+_grid_cache = {}          # slug -> (file mtime, grid)
+
+
+def load_grid(slug: str):
+    path = area_dir(slug) / "grid_features.csv"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"No block data for '{slug}' yet")
+    mtime = path.stat().st_mtime
+    cached = _grid_cache.get(slug)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    cells = {}
+    with path.open(newline="") as f:
+        for r in csv.DictReader(f):
+            cells[(int(r["row"]), int(r["col"]))] = r
+    any_cell = next(iter(cells.values()))
+    cell_w = float(any_cell["east"]) - float(any_cell["west"])       # degrees, positive
+    cell_h = float(any_cell["south"]) - float(any_cell["north"])     # degrees, negative
+    grid = {
+        "cells": cells, "cell_w": cell_w, "cell_h": cell_h,
+        "west0": float(any_cell["west"]) - int(any_cell["col"]) * cell_w,
+        "north0": float(any_cell["north"]) - int(any_cell["row"]) * cell_h,
+        "ranked": sum(1 for r in cells.values() if r["eligible"] == "True"),
+    }
+    _grid_cache[slug] = (mtime, grid)
+    return grid
+
+
+def why_not(r) -> str:
+    if float(r["water_frac"]) >= MAX_WATER:
+        return "Mostly water"
+    if float(r["tree_frac"]) >= MAX_TREE_NOW:
+        return "Already half or more trees"
+    if float(r["added"]) < MIN_ROOM:
+        return "No room for trees (bare ground or water is never replaced)"
+    return "Near a river or big lake, or inside a no-plant area (airport, quarry, parade ground)"
+
+
+def pct(x) -> int:
+    return int(round(100 * float(x)))
+
+
+@app.get("/api/cell/{slug}")
+def get_cell(slug: str, lat: float, lon: float):
+    """The 100 m block under one point: its land mix, temperature, and expected cooling."""
+    grid = load_grid(slug)
+    row = math.floor((lat - grid["north0"]) / grid["cell_h"])
+    col = math.floor((lon - grid["west0"]) / grid["cell_w"])
+    r = grid["cells"].get((row, col))
+    if r is None:
+        raise HTTPException(status_code=404, detail="No data for this block (outside the area, or cloud)")
+    eligible = r["eligible"] == "True"
+    return {
+        "row": row, "col": col,
+        "bounds": [float(r["south"]), float(r["west"]), float(r["north"]), float(r["east"])],
+        "lst_now_c": round(float(r["lst_mean"]), 1),
+        "ndvi": round(float(r["ndvi_mean"]), 2),
+        "land_pct": {"trees": pct(r["tree_frac"]), "built": pct(r["built_frac"]), "crops": pct(r["crops_frac"]),
+                     "grass": pct(r["grass_frac"]), "shrub": pct(r["shrub_frac"]), "bare": pct(r["bare_frac"]),
+                     "water": pct(r["water_frac"])},
+        "eligible": eligible,
+        "reason": None if eligible else why_not(r),
+        "rank": int(r["rank"]) if eligible else None,
+        "ranked_blocks": grid["ranked"],
+        "tier": int(r["tier"]),
+        "delta_t_c": round(float(r["delta_t"]), 2) if eligible else None,
+        "lst_after_c": round(float(r["lst_mean"]) - float(r["delta_t"]), 1) if eligible else None,
+        "tree_pct_after": pct(float(r["tree_frac"]) + float(r["added"])) if eligible else None,
+        "canopy_added_m2": int(round(float(r["canopy_added_m2"]))) if eligible and r.get("canopy_added_m2") else None,
+        "trees_est": int(round(float(r["trees_est"]))) if eligible and r.get("trees_est") else None,
+    }
 
 
 # ---------- analysing a new box ----------

@@ -175,3 +175,35 @@ def test_zones_csv_old_file_without_canopy(client):
 def test_zones_csv_missing_area(client):
     assert client.get("/api/priority/nowhere/zones.csv").status_code == 404
     assert client.get("/api/priority/Bad_Slug/zones.csv").status_code == 400
+
+
+# ---------- one block anywhere ----------
+
+GRID_HEADER = "row,col,west,east,north,south,water_frac,tree_frac,grass_frac,crops_frac,shrub_frac,built_frac,bare_frac,ndvi_mean,lst_mean,lon,lat,added,delta_t,eligible,rank,tier,canopy_added_m2,trees_est\n"
+
+
+def write_grid(rows):
+    (main.DATA_ROOT / "testville" / "grid_features.csv").write_text(GRID_HEADER + "".join(rows))
+    main._grid_cache.clear()
+
+
+def test_cell_eligible_block(client):
+    write_grid(["0,0,85.0,85.001,20.1,20.099,0,0.1,0,0.3,0,0.6,0,0.2,41.0,85.0005,20.0995,0.2,2.5,True,7,1,1860,37\n",
+                "0,1,85.001,85.002,20.1,20.099,0.6,0,0,0,0,0,0.4,0.1,33.0,85.0015,20.0995,0,0.1,False,0,0,0,0\n"])
+    r = client.get("/api/cell/testville", params={"lat": 20.0996, "lon": 85.0004}).json()
+    assert r["eligible"] and r["rank"] == 7 and r["ranked_blocks"] == 1
+    assert r["delta_t_c"] == 2.5 and r["lst_after_c"] == 38.5 and r["tree_pct_after"] == 30
+    assert r["land_pct"]["built"] == 60 and r["trees_est"] == 37
+
+
+def test_cell_not_eligible_says_why(client):
+    write_grid(["0,1,85.001,85.002,20.1,20.099,0.6,0,0,0,0,0,0.4,0.1,33.0,85.0015,20.0995,0,0.1,False,0,0,0,0\n"])
+    r = client.get("/api/cell/testville", params={"lat": 20.0996, "lon": 85.0014}).json()
+    assert r["eligible"] is False and r["reason"] == "Mostly water" and r["delta_t_c"] is None
+
+
+def test_cell_outside_or_missing(client):
+    write_grid(["0,0,85.0,85.001,20.1,20.099,0,0.1,0,0.3,0,0.6,0,0.2,41.0,85.0005,20.0995,0.2,2.5,True,7,1,1860,37\n"])
+    assert client.get("/api/cell/testville", params={"lat": 20.05, "lon": 85.05}).status_code == 404
+    assert client.get("/api/cell/nowhere", params={"lat": 21.05, "lon": 86.05}).status_code == 404
+    assert client.get("/api/cell/Bad_Slug", params={"lat": 21.05, "lon": 86.05}).status_code == 400
